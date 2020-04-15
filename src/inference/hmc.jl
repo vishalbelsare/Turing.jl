@@ -108,6 +108,18 @@ function AbstractMCMC.sample_init!(
     resume_from=nothing,
     kwargs...
 )
+    # Set up lp function.
+    function _lp(x)
+        gradient_logp(x, spl.state.vi, model, spl)
+    end
+
+    runmodel!(model, spl.state.vi, SampleFromUniform())
+    l, dl = _lp(spl.state.vi[spl])
+    while !isfinite(l) || !isfinite(dl)
+        empty!(spl.state.vi)
+        runmodel!(model, spl.state.vi, SampleFromUniform())
+        l, dl = _lp(spl.state.vi[spl])
+    end
 
     # Resume the sampler.
     set_resume!(spl; resume_from=resume_from, kwargs...)
