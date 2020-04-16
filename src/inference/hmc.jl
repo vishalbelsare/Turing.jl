@@ -113,7 +113,6 @@ function AbstractMCMC.sample_init!(
         gradient_logp(x, spl.state.vi, model, spl)
     end
 
-    runmodel!(model, spl.state.vi, SampleFromUniform())
     l, dl = _lp(spl.state.vi[spl])
     while !isfinite(l) || !isfinite(dl)
         empty!(spl.state.vi)
