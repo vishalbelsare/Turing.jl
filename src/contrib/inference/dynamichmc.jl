@@ -63,7 +63,6 @@ function AbstractMCMC.sample_init!(
     model(spl.state.vi, SampleFromUniform())
     l, dl = _lp(spl.state.vi[spl])
     while !isfinite(l) || !isfinite(dl)
-        empty!(spl.state.vi)
         model(spl.state.vi, SampleFromUniform())
         l, dl = _lp(spl.state.vi[spl])
     end
