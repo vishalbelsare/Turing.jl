@@ -106,25 +106,28 @@ function AbstractMCMC.sample_init!(
     N::Integer;
     verbose::Bool=true,
     resume_from=nothing,
+    init_theta=nothing,
     kwargs...
 )
-    # Set up lp function.
-    function _lp(x)
-        gradient_logp(x, spl.state.vi, model, spl)
-    end
-
-    l, dl = _lp(spl.state.vi[spl])
-    while !isfinite(l) || !isfinite(dl)
-        empty!(spl.state.vi)
-        runmodel!(model, spl.state.vi, SampleFromUniform())
-        l, dl = _lp(spl.state.vi[spl])
-    end
-
     # Resume the sampler.
     set_resume!(spl; resume_from=resume_from, kwargs...)
 
     # Get `init_theta`
-    initialize_parameters!(spl; verbose=verbose, kwargs...)
+    #initialize_parameters!(spl; verbose=verbose, kwargs...)
+    if init_theta !== nothing
+        spl.state.vi[spl] = init_theta
+        spl.state.z = AHMC.phasepoint(rng, init_theta, spl.state.h)
+    else
+        # Samples new values and sets trans to true, then computes the logp
+        runmodel!(model, spl.state.vi, SampleFromUniform())
+        theta = spl.state.vi[spl]
+        spl.state.z = AHMC.phasepoint(rng, theta, spl.state.h)
+        while !isfinite(spl.state.z.ℓπ.value) || !isfinite(spl.state.z.ℓπ.gradient)
+            runmodel!(model, spl.state.vi, SampleFromUniform())
+            theta = spl.state.vi[spl]
+            spl.state.z = AHMC.phasepoint(rng, theta, spl.state.h)
+        end
+    end
 
     # Set the default number of adaptations, if relevant.
     if spl.alg isa AdaptiveHamiltonian
