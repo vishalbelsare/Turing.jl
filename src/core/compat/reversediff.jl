@@ -12,6 +12,7 @@ getrdcache() = RDCache[]
 ADBackend(::Val{:reversediff}) = ReverseDiffAD{getrdcache()}
 function setadbackend(::Val{:reversediff})
     ADBACKEND[] = :reversediff
+    AdvancedVI.setadbackend(:reversediff)
 end
 
 function gradient_logp(

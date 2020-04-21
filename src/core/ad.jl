@@ -10,6 +10,8 @@ end
 function setadbackend(::Val{:forwarddiff})
     CHUNKSIZE[] == 0 && setchunksize(40)
     ADBACKEND[] = :forwarddiff
+
+    AdvancedVI.setadbackend(:forwarddiff)
 end
 
 function setadbackend(::Val{:reverse_diff})
@@ -18,6 +20,7 @@ function setadbackend(::Val{:reverse_diff})
 end
 function setadbackend(::Val{:tracker})
     ADBACKEND[] = :tracker
+    AdvancedVI.setadbackend(:tracker)
 end
 
 const ADSAFE = Ref(false)

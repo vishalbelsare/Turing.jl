@@ -11,6 +11,7 @@ using LinearAlgebra: copytri!
 using Bijectors: PDMatDistribution
 import Bijectors: link, invlink
 using StatsFuns: logsumexp, softmax
+using AdvancedVI
 @reexport using DynamicPPL
 using Requires
 

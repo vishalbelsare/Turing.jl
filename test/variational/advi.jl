@@ -1,10 +1,44 @@
 using DistributionsAD
 
+using Zygote, ReverseDiff
+
 using Turing, Random, Test, LinearAlgebra
 using Turing: Variational
 using Turing.Variational: TruncatedADAGrad, DecayedADAGrad
 
-include("../test_utils/AllUtils.jl")
+using Turing
+
+# include("../test_utils/AllUtils.jl")
+
+xs = randn(100);
+
+@model demo(x) = begin
+    μ ~ MvNormal(zeros(length(x)), ones(length(x)))
+    for i in eachindex(x)
+        x[i] ~ Normal(μ[i], 1.)
+    end
+end
+
+m = demo(xs)
+
+Turing.setadbackend(:forwarddiff)
+advi = ADVI(10, 1000)
+q_forward = vi(m, advi)
+q_forward.dist.m
+
+Turing.setadbackend(:tracker)
+advi = ADVI(10, 1000)
+q_tracker = vi(m, advi)
+q_tracker.dist.m
+
+sample(m, HMC(0.1, 10), 100)
+
+Turing.setadbackend(:reversediff)
+advi = ADVI(10, 1000)
+q_reverse = vi(m, advi)
+q_reverse.dist.m
+
+
 
 @testset "advi.jl" begin
     @turing_testset "advi constructor" begin

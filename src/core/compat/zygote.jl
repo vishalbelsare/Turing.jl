@@ -2,6 +2,7 @@ struct ZygoteAD <: ADBackend end
 ADBackend(::Val{:zygote}) = ZygoteAD
 function setadbackend(::Val{:zygote})
     ADBACKEND[] = :zygote
+    AdvancedVI.setadbackend(:zygote)
 end
 
 function gradient_logp(
