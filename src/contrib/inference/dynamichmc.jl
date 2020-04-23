@@ -64,11 +64,11 @@ function AbstractMCMC.sample_init!(
     l, dl = _lp(spl.state.vi[spl])
     while !isfinite(l) || !isfinite(dl)
         empty!(spl.state.vi)
-        runmodel!(model, spl.state.vi, SampleFromUniform())
+        model(spl.state.vi, SampleFromUniform())
         l, dl = _lp(spl.state.vi[spl])
     end
 
-    if spl.selector.tag == :default
+    if spl.selector.tag == :default && !islinked(spl.state.vi, spl)
         link!(spl.state.vi, spl)
         model(spl.state.vi, spl)
     end
