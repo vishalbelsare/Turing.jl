@@ -116,7 +116,10 @@ function AbstractMCMC.sample_init!(
     #initialize_parameters!(spl; verbose=verbose, kwargs...)
     if init_theta !== nothing
         spl.state.vi[spl] = init_theta
-        spl.state.z = AHMC.phasepoint(rng, init_theta, spl.state.h)
+        link!(spl.state.vi, spl)
+        model(spl.state.vi, spl)
+        theta = spl.state.vi[spl]
+        spl.state.z = AHMC.phasepoint(rng, theta, spl.state.h)
     else
         # Samples new values and sets trans to true, then computes the logp
         model(spl.state.vi, SampleFromUniform())
@@ -152,6 +155,9 @@ function AbstractMCMC.sample_init!(
     if !islinked(spl.state.vi, spl) && spl.selector.tag == :default
         link!(spl.state.vi, spl)
         model(spl.state.vi, spl)
+    elseif islinked(spl.state.vi, spl) && spl.selector.tag !== :default
+        invlink!(spl.state.vi, spl)
+        model(spl.state.vi, spl)        
     end
 end
 
