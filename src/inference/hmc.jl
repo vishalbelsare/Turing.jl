@@ -460,7 +460,7 @@ function DynamicPPL.assume(
     spl::Sampler{<:Hamiltonian},
     dist::Distribution,
     vn::VarName,
-    vi::VarInfo
+    vi::AbstractVarInfo
 )
     Turing.DEBUG && _debug("assuming...")
     updategid!(vi, vn, spl)
@@ -478,7 +478,7 @@ function DynamicPPL.dot_assume(
     dist::MultivariateDistribution,
     vns::AbstractArray{<:VarName},
     var::AbstractMatrix,
-    vi::VarInfo,
+    vi::AbstractVarInfo,
 )
     @assert length(dist) == size(var, 1)
     updategid!.(Ref(vi), vns, Ref(spl))
@@ -491,7 +491,7 @@ function DynamicPPL.dot_assume(
     dists::Union{Distribution, AbstractArray{<:Distribution}},
     vns::AbstractArray{<:VarName},
     var::AbstractArray,
-    vi::VarInfo,
+    vi::AbstractVarInfo,
 )
     updategid!.(Ref(vi), vns, Ref(spl))
     r = reshape(vi[vec(vns)], size(var))
@@ -503,7 +503,7 @@ function DynamicPPL.observe(
     spl::Sampler{<:Hamiltonian},
     d::Distribution,
     value,
-    vi::VarInfo,
+    vi::AbstractVarInfo,
 )
     return DynamicPPL.observe(SampleFromPrior(), d, value, vi)
 end
@@ -512,7 +512,7 @@ function DynamicPPL.dot_observe(
     spl::Sampler{<:Hamiltonian},
     ds::Union{Distribution, AbstractArray{<:Distribution}},
     value::AbstractArray,
-    vi::VarInfo,
+    vi::AbstractVarInfo,
 )
     return DynamicPPL.dot_observe(SampleFromPrior(), ds, value, vi)
 end

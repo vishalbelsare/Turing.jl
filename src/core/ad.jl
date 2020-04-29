@@ -19,6 +19,9 @@ end
 function setadbackend(::Val{:tracker})
     ADBACKEND[] = :tracker
 end
+function setadbackend(::Val{:sparseforwarddiff})
+    ADBACKEND[] = :sparseforwarddiff
+end
 
 const ADSAFE = Ref(false)
 function setadsafe(switch::Bool)
@@ -37,6 +40,8 @@ end
 
 abstract type ADBackend end
 struct ForwardDiffAD{chunk} <: ADBackend end
+struct SparseForwardDiffAD{chunk} <: ADBackend end
+getchunksize(::Type{<:SparseForwardDiffAD{chunk}}) where chunk = chunk
 getchunksize(::Type{<:ForwardDiffAD{chunk}}) where chunk = chunk
 getchunksize(::Type{<:Sampler{Talg}}) where Talg = getchunksize(Talg)
 getchunksize(::Type{SampleFromPrior}) = CHUNKSIZE[]
@@ -46,6 +51,7 @@ struct TrackerAD <: ADBackend end
 ADBackend() = ADBackend(ADBACKEND[])
 ADBackend(T::Symbol) = ADBackend(Val(T))
 
+ADBackend(::Val{:sparseforwarddiff}) = SparseForwardDiffAD{CHUNKSIZE[]}
 ADBackend(::Val{:forwarddiff}) = ForwardDiffAD{CHUNKSIZE[]}
 ADBackend(::Val{:tracker}) = TrackerAD
 ADBackend(::Val) = error("The requested AD backend is not available. Make sure to load all required packages.")
@@ -117,6 +123,61 @@ function gradient_logp(
 
     return l, ∂l∂θ
 end
+
+using SparsityDetection, SparseDiffTools, Memoization
+using DynamicPPL: LazyVarInfo, getlogpvec
+
+# This makes sure we generate a single tape per Turing model and sampler
+struct SparseFDTapeKey{F, Tx}
+    f::F
+    x::Tx
+end
+function Memoization._get!(f::Union{Function, Type}, d::IdDict, keys::Tuple{Tuple{SparseFDTapeKey}, Any})
+    key = keys[1][1]
+    return Memoization._get!(f, d, (typeof(key.f), typeof(key.x), size(key.x)))
+end
+memoized_jacobian_colors(f, x) = memoized_jacobian_colors(SparseFDTapeKey(f, x))
+Memoization.@memoize function memoized_jacobian_colors(k::SparseFDTapeKey)
+    f, x = k.f, k.x
+    y = similar(x)
+    sparsity_pattern = jacobian_sparsity(f, y, x)
+    jac = Float64.(sparse(sparsity_pattern))
+    colors = matrix_colors(jac)
+    return jac, colors
+end
+
+function gradient_logp(
+    ::SparseForwardDiffAD,
+    θ::AbstractVector{<:Real},
+    vi::VarInfo,
+    model::Model,
+    sampler::AbstractSampler=SampleFromPrior(),
+)
+    # Define function to compute log joint.
+    logp_old = getlogp(vi)
+    lvi = LazyVarInfo(vi)
+    resetlogp!(lvi)
+    model(lvi, sampler)
+    N = lvi.lastidx[]
+    resetlogp!(lvi)
+
+    function f(out, θ)
+        new_vi = VarInfo(lvi, sampler, θ)
+        model(new_vi, sampler)
+        setlogp!(vi, sum(ForwardDiff.value, new_view.logp))
+        out .= getlogpvec(new_vi)
+        return out
+    end
+    jac, colors = memoized_jacobian_colors(f, θ)
+    forwarddiff_color_jacobian!(jac, f, θ, colorvec = colors)
+    ∂l∂θ = jac' * ones(N)
+
+    l = getlogp(vi)
+    setlogp!(vi, logp_old)
+
+    return l, ∂l∂θ
+end
+
 function gradient_logp(
     ::TrackerAD,
     θ::AbstractVector{<:Real},
