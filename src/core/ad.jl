@@ -130,16 +130,17 @@ using DynamicPPL: LazyVarInfo, getlogpvec
 # This makes sure we generate a single tape per Turing model and sampler
 struct SparseFDTapeKey{F, Tx}
     f::F
+    y::Tx
     x::Tx
 end
 function Memoization._get!(f::Union{Function, Type}, d::IdDict, keys::Tuple{Tuple{SparseFDTapeKey}, Any})
     key = keys[1][1]
     return Memoization._get!(f, d, (typeof(key.f), typeof(key.x), size(key.x)))
 end
-memoized_jacobian_colors(f, x) = memoized_jacobian_colors(SparseFDTapeKey(f, x))
+memoized_jacobian_colors(f, y, x) = memoized_jacobian_colors(SparseFDTapeKey(f, y, x))
 Memoization.@memoize function memoized_jacobian_colors(k::SparseFDTapeKey)
-    f, x = k.f, k.x
-    y = similar(x)
+    f, y, x = k.f, k.y, k.x
+    f(y, x) # to catch errors - can be removed
     sparsity_pattern = jacobian_sparsity(f, y, x)
     jac = Float64.(sparse(sparsity_pattern))
     colors = matrix_colors(jac)
@@ -164,11 +165,11 @@ function gradient_logp(
     function f(out, θ)
         new_vi = VarInfo(lvi, sampler, θ)
         model(new_vi, sampler)
-        setlogp!(vi, sum(ForwardDiff.value, new_view.logp))
+        setlogp!(vi, sum(ForwardDiff.value, new_vi.logp))
         out .= getlogpvec(new_vi)
         return out
     end
-    jac, colors = memoized_jacobian_colors(f, θ)
+    jac, colors = memoized_jacobian_colors(f, similar(getlogpvec(lvi)), θ)
     forwarddiff_color_jacobian!(jac, f, θ, colorvec = colors)
     ∂l∂θ = jac' * ones(N)
 
