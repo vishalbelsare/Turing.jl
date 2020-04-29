@@ -123,10 +123,12 @@ function AbstractMCMC.sample_init!(
     else
         # Samples new values and sets trans to true, then computes the logp
         model(spl.state.vi, SampleFromUniform())
+        link!(spl.state.vi, spl)
         theta = spl.state.vi[spl]
         spl.state.z = AHMC.phasepoint(rng, theta, spl.state.h)
         while !isfinite(spl.state.z.ℓπ.value) || !isfinite(spl.state.z.ℓπ.gradient)
             model(spl.state.vi, SampleFromUniform())
+            link!(spl.state.vi, spl)
             theta = spl.state.vi[spl]
             spl.state.z = AHMC.phasepoint(rng, theta, spl.state.h)
         end
