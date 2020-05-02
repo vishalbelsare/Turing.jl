@@ -4,7 +4,7 @@ author: Tor Erlend Fjelde
 draft: true
 ---
 
-We, i.e. the [TuringLang team](https://turing.ml/dev/team/), are currently exploring cooperation with other researchers in attempt to help with the ongoing COVID-19 crisis. As preparation for this and to get our feet wet, we decided it would be useful to do a replication study of the [Imperial Report 13](https://www.imperial.ac.uk/mrc-global-infectious-disease-analysis/covid-19/report-13-europe-npi-impact/). We figured it might be useful for the public, in particular other researchers working on the same or similar models, to see the results of this analysis, and thus decided to make it available here.
+We, i.e. the [TuringLang team](https://turing.ml/dev/team/), are currently exploring cooperation with other researchers in attempt to help with the ongoing crisis. As preparation for this and to get our feet wet, we decided it would be useful to do a replication study of the [Imperial Report 13](https://www.imperial.ac.uk/mrc-global-infectious-disease-analysis/covid-19/report-13-europe-npi-impact/). We figured it might be useful for the public, in particular other researchers working on the same or similar models, to see the results of this analysis, and thus decided to make it available here.
 
 We want to emphasize that you should look to the original paper rather than this post for developments and analysis of the model. As of right now, we're not going to be making any claims about the validity of the model nor the implications of the results. This post's purpose is only to add tiny bit of validation to the *inference* performed in the paper by obtaining the same results using a different probabilistic programming language (PPL) and to explore whether or not `Turing.jl` can be useful for researchers working on these problems.
 
@@ -252,6 +252,7 @@ It's worth noting that the data user here is not quite up-to-date for UK because
 For a thorough description of the model and the assumptions that have gone into it, we recommend looking at the [original paper](https://www.imperial.ac.uk/mrc-global-infectious-disease-analysis/covid-19/report-13-europe-npi-impact/) or their very nice [techical report from the repository](https://github.com/ImperialCollegeLondon/covid19model/tree/6ee3010a58a57cc14a16545ae897ca668b7c9096/Technical_description_of_Imperial_COVID_19_Model.pdf). The model described here is the one corresponding to the technical report linked. The link points to the correct commit ID and so should be consistent with this post despite potential changes to the "official" model made in the future.
 
 For the sake of exposition, we present a compact version of the model here:
+
 $$
 \begin{align}
   \tau & \sim \mathrm{Exponential}(1 / 0.03) \\
@@ -263,7 +264,9 @@ $$
   \tilde{\alpha}_k &\sim \mathrm{Gamma}(0.1667, 1) \quad & \text{for} \quad k = 1, \dots, K \\
   \alpha_k &= \tilde{\alpha}_k - \frac{\log(1.05)}{6} \quad & \text{for} \quad  k = 1, \dots, K \\
   R_{t, m} &= \mu_m \exp(- \beta_m x_{k_{\text{ld}}} - \sum_{k=1}^{K} \alpha_k x_k) \quad & \text{for} \quad m = 1, \dots, M, \ t = 1, \dots, T  \\
-  c_{t, m} &= R_{t, m} \bigg(1 - \frac{c_{t - 1, m}}{p_m} \bigg) \sum_{\tau = 1}^{t - 1} c_{\tau, m} s_{t - \tau} \quad & \text{for} \quad m = 1, \dots, M, \ t = 1, \dots, T \\
+  c_{t, m} &= y_m \quad & \text{for} \quad m = 1, \dots, M, \ t = 1, \dots, T_{\text{impute}} \\
+  C_{t, m} &= \sum_{\tau = 0}^{t - 1} c_{\tau, m}  \quad & \text{for} \quad m = 1, \dots, M, \ t = T_{\text{impute}} + 1, \dots, T \\
+  c_{t, m} &= R_{t, m} \bigg(1 - \frac{C_{t, m}}{p_m}\bigg) \sum_{\tau = 0}^{t - 1} c_{\tau, m} s_{t - \tau} \quad & \text{for} \quad m = 1, \dots, M, \ t = T_{\text{impute}} + 1, \dots, T \\
   \varepsilon_m^{\text{ifr}} &\sim \mathcal{N}(1, 0.1)^{ + } \quad & \text{for} \quad m = 1, \dots, M \\
   \mathrm{ifr}_m^{ * } &\sim \mathrm{ifr}_m \cdot \varepsilon_m^{\text{ifr}} \quad & \text{for} \quad m = 1, \dots, M \\
   d_{t, m} &= \mathrm{ifr}_m^{ * } \sum_{\tau=1}^{t - 1} c_{\tau, m} \pi_{t - \tau} \quad & \text{for} \quad m = 1, \dots, M, \ t = 1, \dots, T \\
@@ -274,38 +277,43 @@ $$
 
 where
 
--   \\(\\alpha_k\\) denotes the weights for the k-th intervention/covariate
--   \\(\\beta_m\\) denotes the weight for the `lockdown` intervention (whose index we denote by \\(k_{\\text{ld}}\\))
-    -   Note that there is also a \\(\\alpha_{k_{\\text{ld}}}\\) which is shared between all the \\(M\\) countries
-    -   In contrast, the \\(\\beta_m\\) weight is local to the country with index \\(m\\)
+-   it's assumed that seeding of new infections begins 30 days before the day after a country has cumulative observed 10 deaths
+-   \\(M\\) denotes the number of countries
+-   \\(T\\) the total number of time-steps
+-   \\(T_{\text{impute}}\\) the time steps to *impute* values for; the first 6 of the 30 days we impute the number, and then we simulate the rest
+-   \\(\alpha_k\\) denotes the weights for the k-th intervention/covariate
+-   \\(\beta_m\\) denotes the weight for the `lockdown` intervention (whose index we denote by \\(k_{\text{ld}}\\))
+    -   Note that there is also a \\(\alpha_{k_{\text{ld}}}\\) which is shared between all the \\(M\\) countries
+    -   In contrast, the \\(\beta_m\\) weight is local to the country with index \\(m\\)
     -   This is a sort of  way to try and deal with the fact that `lockdown` means different things in different countries, e.g. `lockdown` in UK is much more severe than "lockdown" in Norway.
--   \\(\\mu_m\\) represents the \\(R_0\\) value for country \\(m\\) (i.e. \\(R_t\\) without any interventions)
+-   \\(\mu_m\\) represents the \\(R_0\\) value for country \\(m\\) (i.e. \\(R_t\\) without any interventions)
 -   \\(R_{t, m}\\) denotes the **reproduction number** at time \\(t\\) for country \\(m\\)
 -   \\(p_{m}\\) denotes the **total/initial population** for country \\(m\\)
--   \\(\\mathrm{ifr}_m\\) denotes the **infection-fatality ratio** for country \\(m\\), and \\(\\mathrm{ifr}_m^{ * }\\) the *adjusted* infection-fatality ratio (see paper)
--   \\(\\varepsilon_m^{\\text{ifr}}\\) denotes the noise for the multiplicative noise for the \\(\\mathrm{ifr}_m^{ * }\\)
--   \\(\\pi\\) denotes the **time from infection to death** and is assumed to be a sum of two independent random times: the incubation period (*infection-to-onset*) and time between onset of symptoms and death (*onset-to-death*):
-
+-   \\(\mathrm{ifr}_m\\) denotes the **infection-fatality ratio** for country \\(m\\), and \\(\mathrm{ifr}_m^{ * }\\) the *adjusted* infection-fatality ratio (see paper)
+-   \\(\varepsilon_m^{\text{ifr}}\\) denotes the noise for the multiplicative noise for the \\(\mathrm{ifr}_m^{ * }\\)
+-   \\(\pi\\) denotes the **time from infection to death** and is assumed to be a sum of two independent random times: the incubation period (*infection-to-onset*) and time between onset of symptoms and death (*onset-to-death*):
+    
     $$
     \begin{equation*}
     \pi \sim \mathrm{Gamma}(5.1, 0.86) + \mathrm{Gamma}(18.8, 0.45)
     \end{equation*}
     $$
-
-    where in this case the \\(\\mathrm{Gamma}\\) is parameterized by its mean and coefficient of variation. In the model, this is *precomputed* quantity and note something to that is to be inferred.
--   \\(\\pi_t\\) then denotes a discretized version of the PDF for \\(\\pi\\). The reasoning behind the discretization is that if we assume \\(d_m(t)\\) to be a continuous random variable denoting the death-rate at any time \\(t\\), then it would be given by
+    
+    where in this case the \\(\mathrm{Gamma}\\) is parameterized by its mean and coefficient of variation. In the model, this is *precomputed* quantity and note something to that is to be inferred.
+-   \\(\pi_t\\) then denotes a discretized version of the PDF for \\(\pi\\). The reasoning behind the discretization is that if we assume \\(d_m(t)\\) to be a continuous random variable denoting the death-rate at any time \\(t\\), then it would be given by
     
     $$
     \begin{equation*}
     d_m(t) = \mathrm{ifr}_m^{ * } \int_0^t c_m(\tau) \pi(t - \tau) dt
     \end{equation*}
     $$
-
-    i.e. the convolution of the number of cases observed at time time \\(\\tau\\), \\(c_m(\\tau)\\), and the *probability* of death at prior to time \\(t\\) for the new cases observed at time \\(\\tau\\), \\(\\pi(t - \\tau)\\) (assuming stationarity of \\(\\pi(t)\\)). Thus, \\(c_m(\\tau) \\pi(t - \\tau)\\) can be interpreted as the portion people who got the virus at time \\(\\tau\\) have died at time \\(t\\) (or rather, have died after having the virus for \\(t - \\tau\\) time, with \\(t > \\tau\\)). Discretizing then results in the above model.
+    
+    i.e. the convolution of the number of cases observed at time time \\(\tau\\), \\(c_m(\tau)\\), and the *probability* of death at prior to time \\(t\\) for the new cases observed at time \\(\tau\\), \\(\pi(t - \tau)\\) (assuming stationarity of \\(\pi(t)\\)). Thus, \\(c_m(\tau) \pi(t - \tau)\\) can be interpreted as the portion people who got the virus at time \\(\tau\\) have died at time \\(t\\) (or rather, have died after having the virus for \\(t - \tau\\) time, with \\(t > \tau\\)). Discretizing then results in the above model.
 -   \\(s_t\\) denotes the **serial intervals**, i.e. the time between successive cases in a chain of transmission, also a precomputed quantity
 -   \\(c_{t, m}\\) denotes the **expected daily cases** at time \\(t\\) for country \\(m\\)
+-   \\(C_{t, m}\\) denotes the **cumulative cases** prior to time \\(t\\) for country \\(m\\)
 -   \\(d_{t, m}\\) denotes the **expected daily deaths** at time \\(t\\) for country \\(m\\)
--   \\(D_{t, m}\\) denotes the **daily deaths** at time \\(t\\) for country \\(m\\) (in our case, this is the **likelihood**)
+-   \\(D_{t, m}\\) denotes the **daily deaths** at time \\(t\\) for country \\(m\\) (in our case, this is the **likelihood**); note that here we're using the mean and variance coefficient parameterization of \\(\mathrm{NegativeBinomial}\\)
 
 To see the reasoning for the choices of distributions and parameters for the priors, see the either the paper or the [techical report from the repository](https://github.com/ImperialCollegeLondon/covid19model/tree/6ee3010a58a57cc14a16545ae897ca668b7c9096/Technical_description_of_Imperial_COVID_19_Model.pdf).
 
@@ -809,7 +817,7 @@ chain_prior = sample(m, Turing.Inference.PriorSampler(), 1_000);
 plot(chain_prior[[:ϕ, :τ, :κ]]; α = .5, linewidth=1.5)
 {% endhighlight %}
 
-![img](../assets/figures/uk-prior-kappa-phi-tau-sample-plot.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-prior-kappa-phi-tau-sample-plot.png)
 
 For the same reasons it can be very useful to inspect the *predictive prior*.
 
@@ -823,7 +831,7 @@ daily_cases_prior, daily_deaths_prior, Rt_prior, Rt_adj_prior = generated_prior;
 country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_prior)
 {% endhighlight %}
 
-![img](../assets/figures/uk-predictive-prior-Rt.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-predictive-prior-Rt.png)
 
 And with the Rt *adjusted for remaining population*:
 
@@ -831,7 +839,7 @@ And with the Rt *adjusted for remaining population*:
 country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_adj_prior)
 {% endhighlight %}
 
-![img](../assets/figures/uk-predictive-prior-Rt-adjusted.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-predictive-prior-Rt-adjusted.png)
 
 At this point it might be useful to remind ourselves of the total population of UK is:
 
@@ -1079,7 +1087,7 @@ chains_posterior = chains_posterior[1:3:end] # <= thin so we're left with 1000 s
 plot(chains_posterior[[:κ, :ϕ, :τ]]; α = .5, linewidth=1.5)
 {% endhighlight %}
 
-![img](../assets/figures/uk-posterior-kappa-phi-tau-sample-plot.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-posterior-kappa-phi-tau-sample-plot.png)
 
 {% highlight julia %}
 # Compute generated quantities for the chains pooled together
@@ -1095,7 +1103,7 @@ The predictive posterior:
 country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_posterior)
 {% endhighlight %}
 
-![img](../assets/figures/uk-predictive-posterior-Rt.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-predictive-posterior-Rt.png)
 
 and with the adjusted \\(R_t\\):
 
@@ -1103,72 +1111,68 @@ and with the adjusted \\(R_t\\):
 country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_adj_posterior)
 {% endhighlight %}
 
-![img](../assets/figures/uk-predictive-posterior-Rt-adjusted.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/uk-predictive-posterior-Rt-adjusted.png)
 
 
 ## All countries: prior vs. posterior predictive
 
 For the sake of completeness, here are the predictive priors and posteriors for all the 14 countries in a side-by-side comparison.
 
-<div class="two-by-two">
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-01.png)
 
-![img](../assets/figures/country-prior-predictive-01.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-01.png)
 
-![img](../assets/figures/country-posterior-predictive-01.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-02.png)
 
-![img](../assets/figures/country-prior-predictive-02.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-02.png)
 
-![img](../assets/figures/country-posterior-predictive-02.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-03.png)
 
-![img](../assets/figures/country-prior-predictive-03.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-03.png)
 
-![img](../assets/figures/country-posterior-predictive-03.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-04.png)
 
-![img](../assets/figures/country-prior-predictive-04.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-04.png)
 
-![img](../assets/figures/country-posterior-predictive-04.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-05.png)
 
-![img](../assets/figures/country-prior-predictive-05.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-05.png)
 
-![img](../assets/figures/country-posterior-predictive-05.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-06.png)
 
-![img](../assets/figures/country-prior-predictive-06.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-06.png)
 
-![img](../assets/figures/country-posterior-predictive-06.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-07.png)
 
-![img](../assets/figures/country-prior-predictive-07.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-07.png)
 
-![img](../assets/figures/country-posterior-predictive-07.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-08.png)
 
-![img](../assets/figures/country-prior-predictive-08.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-08.png)
 
-![img](../assets/figures/country-posterior-predictive-08.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-09.png)
 
-![img](../assets/figures/country-prior-predictive-09.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-09.png)
 
-![img](../assets/figures/country-posterior-predictive-09.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-10.png)
 
-![img](../assets/figures/country-prior-predictive-10.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-10.png)
 
-![img](../assets/figures/country-posterior-predictive-10.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-11.png)
 
-![img](../assets/figures/country-prior-predictive-11.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-11.png)
 
-![img](../assets/figures/country-posterior-predictive-11.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-12.png)
 
-![img](../assets/figures/country-prior-predictive-12.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-12.png)
 
-![img](../assets/figures/country-posterior-predictive-12.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-13.png)
 
-![img](../assets/figures/country-prior-predictive-13.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-13.png)
 
-![img](../assets/figures/country-posterior-predictive-13.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-prior-predictive-14.png)
 
-![img](../assets/figures/country-prior-predictive-14.png)
-
-![img](../assets/figures/country-posterior-predictive-14.png)
-
-</div>
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/country-posterior-predictive-14.png)
 
 
 ## What if we didn't do any/certain interventions?
@@ -1273,7 +1277,7 @@ daily_cases_counterfactual, daily_deaths_counterfactual, Rt_counterfactual, Rt_a
 country_prediction_plot(5, daily_cases_counterfactual, daily_deaths_counterfactual, Rt_adj_counterfactual; normalize_pop = true)
 {% endhighlight %}
 
-![img](../assets/figures/counterfactual-remove-all.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/counterfactual-remove-all.png)
 
 We can also consider the cases where we only do *some* of the interventions, e.g. we never do a full lockdown (`lockdown`) or close schools and universities (`schools_universities`):
 
@@ -1299,7 +1303,7 @@ daily_cases_counterfactual, daily_deaths_counterfactual, Rt_counterfactual, Rt_a
 country_prediction_plot(uk_index, daily_cases_counterfactual, daily_deaths_counterfactual, Rt_adj_counterfactual; normalize_pop = true)
 {% endhighlight %}
 
-![img](../assets/figures/counterfactual-remove-lockdown-and-schools.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/counterfactual-remove-lockdown-and-schools.png)
 
 As mentioned, this assumes that we will stay in lockdown and schools and universities will be closed in the future. We can also consider, say, removing the lockdown, i.e. opening up, at some future point in time:
 
@@ -1332,7 +1336,7 @@ daily_cases_counterfactual, daily_deaths_counterfactual, Rt_counterfactual, Rt_a
 country_prediction_plot(uk_index, daily_cases_counterfactual, daily_deaths_counterfactual, Rt_adj_counterfactual; normalize_pop = true)
 {% endhighlight %}
 
-![img](../assets/figures/counterfactual-remove-lockdown-after-a-while.png)
+![img](../assets/figures/2020-05-02-03-Imperial-Report13-analysis/counterfactual-remove-lockdown-after-a-while.png)
 
 
 # Conclusion
