@@ -55,11 +55,11 @@ alg_str(::Sampler{<:MH}) = "MH"
 #####################
 
 """
-    set_namedtuple!(vi::VarInfo, nt::NamedTuple)
+    set_namedtuple!(vi, nt::NamedTuple)
 
-Places the values of a `NamedTuple` into the relevant places of a `VarInfo`.
+Places the values of a `NamedTuple` into the relevant places of `vi`.
 """
-function set_namedtuple!(vi::VarInfo, nt::NamedTuple)
+function set_namedtuple!(vi, nt::NamedTuple)
     for (n, vals) in pairs(nt)
         vns = vi.metadata[n].vns
 
@@ -96,7 +96,7 @@ end
 
 A log density function for the MH sampler.
 
-This variant uses the  `set_namedtuple!` function to update the `VarInfo`.
+This variant uses the  `set_namedtuple!` function to update the variables.
 """
 struct MHLogDensityFunction{M<:Model,S<:Sampler{<:MH}} <: Function # Relax AMH.DensityModel?
     model::M
@@ -143,7 +143,7 @@ function dist_val_tuple(spl::Sampler{<:MH})
 end
 
 @generated function _val_tuple(
-    vi::VarInfo,
+    vi,
     vns::NamedTuple{names}
 ) where {names}
     isempty(names) === 0 && return :(NamedTuple())
@@ -157,7 +157,7 @@ end
 
 @generated function _dist_tuple(
     props::NamedTuple{propnames}, 
-    vi::VarInfo,
+    vi,
     vns::NamedTuple{names}
 ) where {names,propnames}
     isempty(names) === 0 && return :(NamedTuple())
