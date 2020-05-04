@@ -42,12 +42,12 @@ function Gibbs(algs::GibbsComponent...)
 end
 
 """
-    GibbsState{V<:VarInfo, S<:Tuple{Vararg{Sampler}}}
+    GibbsState{V<:AbstractVarInfo, S<:Tuple{Vararg{Sampler}}}
 
 Stores a `VarInfo` for use in sampling, and a `Tuple` of `Samplers` that
 the `Gibbs` sampler iterates through for each `step!`.
 """
-mutable struct GibbsState{V<:VarInfo, S<:Tuple{Vararg{Sampler}}} <: AbstractSamplerState
+mutable struct GibbsState{V<:AbstractVarInfo, S<:Tuple{Vararg{Sampler}}} <: AbstractSamplerState
     vi::V
     samplers::S
 end
