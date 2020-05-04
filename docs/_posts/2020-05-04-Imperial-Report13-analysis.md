@@ -1,10 +1,8 @@
 ---
 title: "Replication study: Estimating number of inections and impact of NPIs on COVID-19 in European countries (Imperial Report 13)"
-excerpt: ""
+author: Tor Erlend Fjelde
 date: 2020-05-04
-categories: 
-- post
-tags: 
+draft: true
 ---
 <style>div.two-by-two { height: 100%;display: flex;flex-direction: row;flex-wrap: wrap; } div.two-by-two > p { width: 45%; margin: 0 auto; } </style>
 
