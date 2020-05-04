@@ -1,8 +1,10 @@
 ---
 title: "Replication study: Estimating number of inections and impact of NPIs on COVID-19 in European countries (Imperial Report 13)"
+excerpt: ""
 date: 2020-05-04
-author: Tor Erlend Fjelde
-draft: true
+categories: 
+- post
+tags: 
 ---
 <style>div.two-by-two { height: 100%;display: flex;flex-direction: row;flex-wrap: wrap; } div.two-by-two > p { width: 45%; margin: 0 auto; } </style>
 
@@ -688,32 +690,32 @@ res.expected_daily_cases[uk_index]
 ```
 
     100-element Array{Float64,1}:
-     24.804274945317786
-     24.804274945317786
-     24.804274945317786
-     24.804274945317786
-     24.804274945317786
-     24.804274945317786
-     35.76439640873665
-     42.76326865412404
-     50.529682131986476
-     59.65881811707163
-     70.50522858406578
-     83.38183914169912
-     98.64069788476908
-      ⋮
-      0.1664906312252428
-      0.13715488910882037
-      0.11298812092135428
-      0.09307955070025564
-      0.07667888165339576
-      0.06316801966645844
-      0.052037779134224034
-      0.042868693229316183
-      0.03531520540940764
-      0.02909264638584021
-      0.023966505757656333
-      0.019743593987473124
+     0.2978422827487166
+     0.2978422827487166
+     0.2978422827487166
+     0.2978422827487166
+     0.2978422827487166
+     0.2978422827487166
+     0.832817101553483
+     1.0346063917235566
+     1.3678178161493468
+     1.8604943842674377
+     2.546129501657631
+     3.4852378065416523
+     4.768875412263893
+     ⋮
+     0.24406116233616038
+     0.17186744515247868
+     0.1208474970159245
+     0.08485139699103932
+     0.05949579772505278
+     0.04166274540068994
+     0.029138775736189983
+     0.02035555519759347
+     0.014203911930339133
+     0.009900796534873262
+     0.00689432670057081
+     0.004796166095549548
 
 
 # Visualization utilities
@@ -728,7 +730,7 @@ using Plots, StatsPlots
 
 ```julia
 # Ehh, this can be made nicer...
-function country_prediction_plot(country_idx, predictions_country::AbstractMatrix, e_deaths_country::AbstractMatrix, Rt_country::AbstractMatrix; normalize_pop::Bool = false)
+function country_prediction_plot(country_idx, predictions_country::AbstractMatrix, e_deaths_country::AbstractMatrix, Rt_country::AbstractMatrix; normalize_pop::Bool = false, main_title="")
     pop = data.population[country_idx]
     num_total_days = data.num_total_days
     num_observed_days = length(data.cases[country_idx])
@@ -746,7 +748,7 @@ function country_prediction_plot(country_idx, predictions_country::AbstractMatri
 
     p1 = plot(; xaxis = false, legend = :topleft)
     bar!(preproc(daily_deaths), label="Observed daily deaths")
-    title!(replace(country_name, "_" => " "))
+    title!(replace(country_name, "_" => " ") * " " * main_title)
     vline!([data.epidemic_start[country_idx]], label="epidemic start", linewidth=2)
     vline!([num_observed_days], label="end of observations", linewidth=2)
     xlims!(0, num_total_days)
@@ -1029,7 +1031,7 @@ daily_cases_prior, daily_deaths_prior, Rt_prior, Rt_adj_prior = generated_prior;
 ```
 
 ```julia
-country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_prior)
+country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_prior; main_title = "(prior)")
 ```
 
 ![nil](../assets/figures/2020-05-04-Imperial-Report13-analysis/uk-predictive-prior-Rt.png)
@@ -1037,10 +1039,8 @@ country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_prio
 And with the Rt *adjusted for remaining population*:
 
 ```julia
-country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_adj_prior)
+country_prediction_plot(uk_index, daily_cases_prior, daily_deaths_prior, Rt_adj_prior; main_title = "(prior)")
 ```
-
-![nil](../assets/figures/2020-05-04-Imperial-Report13-analysis/uk-predictive-prior-Rt-adjusted.png)
 
 At this point it might be useful to remind ourselves of the total population of UK is:
 
@@ -1534,12 +1534,6 @@ filenames = [
     relpath(outdir(s)) for s in readdir(outdir())
     if occursin(savename(parameters), s) && occursin("seed", s)
 ]
-filenames = [
-    "out/chains_model=imperial-report13-v2-vectorized-non-predict-6-threads-updated-full-truncation_seed=1_steps=3000_warmup=1000_with_lockdown=true.jls",
-    "out/chains_model=imperial-report13-v2-vectorized-non-predict-6-threads-updated-full-truncation_seed=2_steps=3000_warmup=1000_with_lockdown=true.jls",
-    "out/chains_model=imperial-report13-v2-vectorized-non-predict-6-threads-updated-full-truncation_seed=3_steps=3000_warmup=1000_with_lockdown=true.jls",
-    "out/chains_model=imperial-report13-v2-vectorized-non-predict-6-threads-updated-full-truncation_seed=4_steps=3000_warmup=1000_with_lockdown=true.jls",
-]
 length(filenames)
 ```
 
@@ -1719,7 +1713,7 @@ daily_cases_posterior, daily_deaths_posterior, Rt_posterior, Rt_adj_posterior = 
 The posterior predictive distribution:
 
 ```julia
-country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_posterior)
+country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_posterior; main_title = "(posterior)")
 ```
 
 ![nil](../assets/figures/2020-05-04-Imperial-Report13-analysis/uk-predictive-posterior-Rt.png)
@@ -1727,7 +1721,7 @@ country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior,
 and with the adjusted \\(R\_t\\):
 
 ```julia
-country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_adj_posterior)
+country_prediction_plot(uk_index, daily_cases_posterior, daily_deaths_posterior, Rt_adj_posterior; main_title = "(posterior)")
 ```
 
 ![nil](../assets/figures/2020-05-04-Imperial-Report13-analysis/uk-predictive-posterior-Rt-adjusted.png)
