@@ -231,7 +231,7 @@ function copy_tutorial(tutorial_path)
     # clone("https://github.com/TuringLang/TuringTutorials", tmp_path)
 
     # Move to markdown folder.
-    md_path = joinpath("/home/tor/.julia/dev/TuringTutorials/", "markdown")
+    md_path = joinpath(homedir(), ".julia/dev/TuringTutorials", "markdown")
 
     # Copy the .md versions of all examples.
     try
