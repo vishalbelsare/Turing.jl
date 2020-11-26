@@ -41,19 +41,19 @@ function remove_yaml(file, key=nothing)
 end
 
 function tidy_api(file)
-	lines = readlines(file, keep=true)
+    lines = readlines(file, keep=true)
 
     # Find the ID sections.
     for i = 1:(length(lines)-1)
-		first = lines[i]
-		second = lines[i+1]
+	first = lines[i]
+	second = lines[i+1]
         if startswith(first, "<a id=") && startswith(second, "**")
             first = replace(first, "\n" => "")
-			second = replace(second, "\n" => "")
-			# final_line = replace(first, ">" => ">$second", count = 1)
+	    second = replace(second, "\n" => "")
+	    # final_line = replace(first, ">" => ">$second", count = 1)
 
-			lines[i] = "### $first $second"
-			lines[i+1] = ""
+	    lines[i] = "### $first $second"
+	    lines[i+1] = ""
         end
     end
 
@@ -68,14 +68,14 @@ end
 ## Utilities for Tutorial docs preprocess
 
 """
-    fix_header_1
+            fix_header_1
 
-This function is used to add a first-level header into the
-markdown file.
+        This function is used to add a first-level header into the
+        markdown file.
 
-There are no H1 titles for documents in tutorials, so we need
-this.
-"""
+        There are no H1 titles for documents in tutorials, so we need
+        this.
+        """
 function fix_header_1(file)
     lines = readlines(file, keep=true)
     yaml, yaml_start, yaml_stop = find_yaml_header(lines)
@@ -97,6 +97,7 @@ function fix_header_1(file)
             break
         end
     end
+    title = strip(title, ['"'])
 
     open(file, "w+") do f
         for line in yaml
@@ -117,7 +118,8 @@ function fix_image_path(file)
     lines = readlines(file, keep=true)
     open(file, "w+") do f
         for line in lines
-            line = replace(line, "](/tutorials/" => "](../")
+            # line = replace(line, "](/tutorials/" => "](../")
+            line = replace(line, "](" => "](../")
             write(f, line)
         end
     end
@@ -131,10 +133,10 @@ function preprocess_markdown(folder)
     try
         for (root, dirs, files) in walkdir(folder)
             for file in files
-				if endswith(file, ".md")
-	                full_path = joinpath(root, file)
-	                yaml_dict[full_path] = remove_yaml(full_path)
-				end
+		if endswith(file, ".md")
+	            full_path = joinpath(root, file)
+	            yaml_dict[full_path] = remove_yaml(full_path)
+		end
             end
         end
     catch e
@@ -173,26 +175,26 @@ function postprocess_markdown(folder, yaml_dict; original = "")
 
                         # This is needed to replace the hyperlinks Documenter.jl generates
                         # for the API pages.
-						txt = replace(txt, "api.md" => "{{site.baseurl}}/docs/library/")
-						txt = replace(txt, "bijectors.md" => "{{site.baseurl}}/docs/library/bijectors/")
-						txt = replace(txt, "advancedhmc.md" => "{{site.baseurl}}/docs/library/advancedhmc/")
+			txt = replace(txt, "api.md" => "{{site.baseurl}}/docs/library/")
+			txt = replace(txt, "bijectors.md" => "{{site.baseurl}}/docs/library/bijectors/")
+			txt = replace(txt, "advancedhmc.md" => "{{site.baseurl}}/docs/library/advancedhmc/")
 
                         # Add the rest of the text.
-						if original_path == full_path
-							write(f, txt)
-						else
-							write(f, replace(txt, "![](figures" => "![](/{{site.baseurl}}/tutorials/figures"))
-						end
+			if original_path == full_path
+			    write(f, txt)
+			else
+			    write(f, replace(txt, "![](figures" => "![](/{{site.baseurl}}/tutorials/figures"))
+			end
                     end
                 elseif endswith(file, ".md")
                     println("Original: $original_path")
                     println("Full:     $full_path \n")
                 end
 
-				# Make specific api items headers.
-				if file == "api.md" && original_path != full_path
-					tidy_api(full_path)
-				end
+		# Make specific api items headers.
+		if file == "api.md" && original_path != full_path
+		    tidy_api(full_path)
+		end
             end
         end
     catch e
@@ -220,28 +222,32 @@ function with_clean_docs(func, source, target)
     postprocess_markdown(build_path, yaml_dict, original=source_path)
 end
 
+
 function copy_tutorial(tutorial_path)
     isdir(tutorial_path) || mkpath(tutorial_path)
     # Clone TuringTurorials
     tmp_path = tempname()
     mkdir(tmp_path)
-    clone("https://github.com/TuringLang/TuringTutorials", tmp_path)
+    # clone("https://github.com/TuringLang/TuringTutorials", tmp_path)
 
     # Move to markdown folder.
-    md_path = joinpath(tmp_path, "markdown")
+    md_path = joinpath("/home/tor/.julia/dev/TuringTutorials/", "markdown")
 
     # Copy the .md versions of all examples.
     try
         @debug(md_path)
-        for file in readdir(md_path)
-            full_path = joinpath(md_path, file)
-            target_path = joinpath(tutorial_path, file)
-            println("Copying $full_path to $target_path")
-            cp(full_path, target_path, force=true)
-            if endswith(target_path, ".md")
-                # remove_yaml(target_path, "permalink")
-                fix_header_1(target_path)
-                fix_image_path(target_path)
+        for dir in readdir(md_path)
+            for file in readdir(joinpath(md_path, dir))
+                full_path = joinpath(md_path, dir, file)
+                target_path = joinpath(tutorial_path, file)
+                println("Copying $full_path to $target_path")
+                cp(full_path, target_path, force=true)
+                if endswith(target_path, ".md")
+                    # remove_yaml(target_path, "permalink")
+                    fix_header_1(target_path)
+                    print("fixing image path")
+                    fix_image_path(target_path)
+                end
             end
         end
         index = joinpath(@__DIR__, "src/tutorials/index.md")
