@@ -950,7 +950,7 @@
 
 <p>Of course, it’s much easier to do this in the log space, so the acceptance probability is more commonly written as</p>
 
-\[\alpha = \min\Big[\log \pi(θ'\_t) - \log \pi(θ\_{t-1}) + \log q(θ\_{t-1} \mid θ'\_t) - \log q(θ'\_t \mid θ\_{t-1}), 0\Big]\]
+\[\log \alpha = \min\Big[0, \log \pi(θ'_t) - \log \pi(θ_{t-1}) + \log q(θ_{t-1} \mid θ'_t) - \log q(θ'_t \mid θ_{t-1}) \Big]\]
 
 <p>In interface terms, we should do the following:</p>
 
