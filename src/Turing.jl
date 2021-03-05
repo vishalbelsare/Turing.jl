@@ -17,12 +17,20 @@ using Tracker: Tracker
 
 import AdvancedVI
 import DynamicPPL: getspace, NoDist, NamedDist
+import Random
 
 const PROGRESS = Ref(true)
-function turnprogress(switch::Bool)
-    @info "[Turing]: progress logging is $(switch ? "enabled" : "disabled") globally"
-    PROGRESS[] = switch
-    AdvancedVI.turnprogress(switch)
+
+"""
+    setprogress!(progress::Bool)
+
+Enable progress logging in Turing if `progress` is `true`, and disable it otherwise.
+"""
+function setprogress!(progress::Bool)
+    @info "[Turing]: progress logging is $(progress ? "enabled" : "disabled") globally"
+    PROGRESS[] = progress
+    AdvancedVI.turnprogress(progress)
+    return progress
 end
 
 # Random probability measures.
@@ -47,14 +55,15 @@ using .Variational
 #     end
 # end
 
-@init @require DynamicHMC="bbc10e6e-7c05-544b-b16e-64fede858acb" @eval Inference begin
-    import ..DynamicHMC
+@init @require DynamicHMC="bbc10e6e-7c05-544b-b16e-64fede858acb" begin
+    @eval Inference begin
+        import ..DynamicHMC
 
-    if isdefined(DynamicHMC, :mcmc_with_warmup)
-        using ..DynamicHMC: mcmc_with_warmup
-        include("contrib/inference/dynamichmc.jl")
-    else
-        error("Please update DynamicHMC, v1.x is no longer supported")
+        if isdefined(DynamicHMC, :mcmc_with_warmup)
+            include("contrib/inference/dynamichmc.jl")
+        else
+            error("Please update DynamicHMC, v1.x is no longer supported")
+        end
     end
 end
 
@@ -67,7 +76,8 @@ end
 # Exports #
 ###########
 # `using` statements for stuff to re-export
-using DynamicPPL: elementwise_loglikelihoods, generated_quantities, logprior, logjoint
+using DynamicPPL: pointwise_loglikelihoods, generated_quantities, logprior, logjoint
+using StatsBase: predict
 
 # Turing essentials - modelling macros and inference algorithms
 export  @model,                 # modelling
@@ -81,6 +91,7 @@ export  @model,                 # modelling
         Emcee,
         ESS,
         Gibbs,
+        GibbsConditional,
 
         HMC,                    # Hamiltonian-like sampling
         SGLD,
@@ -89,6 +100,8 @@ export  @model,                 # modelling
         NUTS,
         DynamicNUTS,
         ANUTS,
+
+        PolynomialStepsize,
 
         IS,                     # particle-based sampling
         SMC,
@@ -108,7 +121,7 @@ export  @model,                 # modelling
         setadbackend,
         setadsafe,
 
-        turnprogress,           # debugging
+        setprogress!,           # debugging
 
         Flat,
         FlatPos,
@@ -120,8 +133,10 @@ export  @model,                 # modelling
         filldist,
         arraydist,
 
+        predict,
+        pointwise_loglikelihoods,
         elementwise_loglikelihoods,
-        genereated_quantities,
+        generated_quantities,
         logprior,
         logjoint
 end

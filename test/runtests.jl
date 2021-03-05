@@ -1,10 +1,12 @@
 ##########################################
 # Master file for running all test cases #
 ##########################################
-using Zygote, ReverseDiff, Memoization, Turing; turnprogress(false)
+using Zygote, ReverseDiff, Memoization, Turing
 using Pkg
 using Random
 using Test
+
+setprogress!(false)
 
 include("test_utils/AllUtils.jl")
 
@@ -12,7 +14,6 @@ include("test_utils/AllUtils.jl")
 @testset "Turing" begin
     @testset "core" begin
         include("core/ad.jl")
-        include("core/container.jl")
     end
 
     Turing.setrdcache(false)
@@ -21,6 +22,7 @@ include("test_utils/AllUtils.jl")
         @testset "inference: $adbackend" begin
             @testset "samplers" begin
                 include("inference/gibbs.jl")
+                include("inference/gibbs_conditional.jl")
                 include("inference/hmc.jl")
                 include("inference/is.jl")
                 include("inference/mh.jl")
@@ -29,6 +31,7 @@ include("test_utils/AllUtils.jl")
                 include("inference/AdvancedSMC.jl")
                 include("inference/Inference.jl")
                 include("contrib/inference/dynamichmc.jl")
+                include("contrib/inference/sghmc.jl")
             end
         end
 

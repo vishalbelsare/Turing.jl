@@ -52,7 +52,7 @@ end
 # Samples s with MH and m with PG
 chain = sample(gdemo(1.5, 2.0), Gibbs(MH(:s), PG(10, :m)), 1_000)
 mean(chain)
-````
+```
 
 Using custom distributions defaults to using static MH:
 
@@ -75,7 +75,7 @@ chain = sample(
     1_000
 )
 mean(chain)
-````
+```
 
 Specifying explicit proposals using the `AdvancedMH` interface:
 
@@ -98,7 +98,7 @@ chain = sample(
     1_000
 )
 mean(chain)
-````
+```
 
 Using a custom function to specify a conditional distribution:
 
@@ -121,7 +121,7 @@ chain = sample(
     1_000
 )
 mean(chain)
-````
+```
 
 Providing a covariance matrix will cause `MH` to perform random-walk
 sampling in the transformed space with proposals drawn from a multivariate
@@ -145,7 +145,7 @@ chain = sample(
     1_000
 )
 mean(chain)
-````
+```
 
 """
 function MH(space...)
@@ -185,23 +185,6 @@ function MH(space...)
     syms = vcat(syms, prop_syms)
     return MH{tuple(syms...), typeof(proposals)}(proposals)
 end
-
-function Sampler(
-    alg::MH,
-    model::Model,
-    s::Selector=Selector()
-)
-    # Set up info dict.
-    info = Dict{Symbol, Any}()
-
-    # Set up state struct.
-    state = SamplerState(VarInfo(model))
-
-    # Generate a sampler.
-    return Sampler(alg, info, s, state)
-end
-
-isgibbscomponent(::MH) = true
 
 #####################
 # Utility functions #
@@ -257,21 +240,23 @@ A log density function for the MH sampler.
 
 This variant uses the  `set_namedtuple!` function to update the `VarInfo`.
 """
-struct MHLogDensityFunction{M<:Model,S<:Sampler{<:MH}} <: Function # Relax AMH.DensityModel?
+struct MHLogDensityFunction{M<:Model,S<:Sampler{<:MH},V<:AbstractVarInfo} <: Function # Relax AMH.DensityModel?
     model::M
     sampler::S
+    vi::V
 end
 
-function (f::MHLogDensityFunction)(x)::Float64
+function (f::MHLogDensityFunction)(x)
     sampler = f.sampler
-    vi = sampler.state.vi
+    vi = f.vi
+
     x_old, lj_old = vi[sampler], getlogp(vi)
-    # vi[sampler] = x
     set_namedtuple!(vi, x)
     f.model(vi)
     lj = getlogp(vi)
     vi[sampler] = x_old
     setlogp!(vi, lj_old)
+
     return lj
 end
 
@@ -301,13 +286,14 @@ function reconstruct(
 end
 
 """
-    dist_val_tuple(spl::Sampler{<:MH})
+    dist_val_tuple(spl::Sampler{<:MH}, vi::AbstractVarInfo)
 
-Returns two `NamedTuples`. The first `NamedTuple` has symbols as keys and distributions as values.
+Return two `NamedTuples`.
+
+The first `NamedTuple` has symbols as keys and distributions as values.
 The second `NamedTuple` has model symbols as keys and their stored values as values.
 """
-function dist_val_tuple(spl::Sampler{<:MH})
-    vi = spl.state.vi
+function dist_val_tuple(spl::Sampler{<:MH}, vi::AbstractVarInfo)
     vns = _getvns(vi, spl)
     dt = _dist_tuple(spl.alg.proposals, vi, vns)
     vt = _val_tuple(vi, vns)
@@ -345,115 +331,92 @@ end
     return expr
 end
 
-# Utility functions to link or 
+# Utility functions to link
 maybe_link!(varinfo, sampler, proposal) = nothing
 function maybe_link!(varinfo, sampler, proposal::AdvancedMH.RandomWalkProposal)
     link!(varinfo, sampler)
 end
 
-maybe_invlink!(varinfo, sampler, proposal) = nothing
-function maybe_invlink!(varinfo, sampler, proposal::AdvancedMH.RandomWalkProposal)
-    invlink!(varinfo, sampler)
-end
-
-function AbstractMCMC.sample_init!(
-    rng::AbstractRNG,
-    model::Model,
-    spl::Sampler{<:MH},
-    N::Integer;
-    verbose::Bool=true,
-    resume_from=nothing,
-    kwargs...
-)
-    # Resume the sampler.
-    set_resume!(spl; resume_from=resume_from, kwargs...)
-
-    # Get `init_theta`
-    initialize_parameters!(spl; verbose=verbose, kwargs...)
-
-    # If we're doing random walk with a covariance matrix,
-    # just link everything before sampling.
-    maybe_link!(spl.state.vi, spl, spl.alg.proposals)
-end
-
-function AbstractMCMC.sample_end!(
-    rng::AbstractRNG,
-    model::Model,
-    spl::Sampler{<:MH},
-    N::Integer,
-    transitions;
-    kwargs...
-)
-    # We are doing a random walk, so we unlink everything when we're done.
-    maybe_invlink!(spl.state.vi, spl, spl.alg.proposals)
-
-end
-
 # Make a proposal if we don't have a covariance proposal matrix (the default).
 function propose!(
     rng::AbstractRNG,
+    vi::AbstractVarInfo,
     model::Model,
     spl::Sampler{<:MH},
     proposal
 )
     # Retrieve distribution and value NamedTuples.
-    dt, vt = dist_val_tuple(spl)
+    dt, vt = dist_val_tuple(spl, vi)
 
     # Create a sampler and the previous transition.
     mh_sampler = AMH.MetropolisHastings(dt)
-    prev_trans = AMH.Transition(vt, getlogp(spl.state.vi))
+    prev_trans = AMH.Transition(vt, getlogp(vi))
 
     # Make a new transition.
-    densitymodel = AMH.DensityModel(MHLogDensityFunction(model, spl))
-    trans = AbstractMCMC.step!(rng, densitymodel, mh_sampler, 1, prev_trans)
+    densitymodel = AMH.DensityModel(MHLogDensityFunction(model, spl, vi))
+    trans, _ = AbstractMCMC.step(rng, densitymodel, mh_sampler, prev_trans)
 
     # Update the values in the VarInfo.
-    set_namedtuple!(spl.state.vi, trans.params)
-    setlogp!(spl.state.vi, trans.lp)
+    set_namedtuple!(vi, trans.params)
+    setlogp!(vi, trans.lp)
+
+    return
 end
 
 # Make a proposal if we DO have a covariance proposal matrix.
 function propose!(
     rng::AbstractRNG,
+    vi::AbstractVarInfo,
     model::Model,
     spl::Sampler{<:MH},
     proposal::AdvancedMH.RandomWalkProposal{<:MvNormal}
 )
     # If this is the case, we can just draw directly from the proposal
     # matrix.
-    vals = spl.state.vi[spl]
+    vals = vi[spl]
 
     # Create a sampler and the previous transition.
     mh_sampler = AMH.MetropolisHastings(spl.alg.proposals)
-    prev_trans = AMH.Transition(vals, getlogp(spl.state.vi))
+    prev_trans = AMH.Transition(vals, getlogp(vi))
 
     # Make a new transition.
-    densitymodel = AMH.DensityModel(gen_logπ(spl.state.vi, spl, model))
-    trans = AbstractMCMC.step!(rng, densitymodel, mh_sampler, 1, prev_trans)
+    densitymodel = AMH.DensityModel(gen_logπ(vi, spl, model))
+    trans, _ = AbstractMCMC.step(rng, densitymodel, mh_sampler, prev_trans)
 
     # Update the values in the VarInfo.
-    spl.state.vi[spl] = trans.params
-    setlogp!(spl.state.vi, trans.lp)
+    vi[spl] = trans.params
+    setlogp!(vi, trans.lp)
+
+    return
 end
 
-function AbstractMCMC.step!(
+function DynamicPPL.initialstep(
+    rng::AbstractRNG,
+    model::AbstractModel,
+    spl::Sampler{<:MH},
+    vi::AbstractVarInfo;
+    kwargs...
+)
+    # If we're doing random walk with a covariance matrix,
+    # just link everything before sampling.
+    maybe_link!(vi, spl, spl.alg.proposals)
+
+    return Transition(vi), vi
+end
+
+function AbstractMCMC.step(
     rng::AbstractRNG,
     model::Model,
-    spl::Sampler{MH{space, P}},
-    N::Integer,
-    transition;
+    spl::Sampler{<:MH},
+    vi::AbstractVarInfo;
     kwargs...
-) where {space, P}
-    if spl.selector.rerun # Recompute joint in logp
-        model(spl.state.vi)
-    end
-
+)
     # Cases:
     # 1. A covariance proposal matrix
     # 2. A bunch of NamedTuples that specify the proposal space
-    propose!(rng, model, spl, spl.alg.proposals)
+    propose!(rng, vi, model, spl, spl.alg.proposals)
 
-    return Transition(spl)
+    return Transition(vi), vi
 end
 
 ####
@@ -466,7 +429,7 @@ function DynamicPPL.assume(
     vn::VarName,
     vi,
 )
-    updategid!(vi, vn, spl)
+    DynamicPPL.updategid!(vi, vn, spl)
     r = vi[vn]
     return r, logpdf_with_trans(dist, r, istrans(vi, vn))
 end
@@ -482,7 +445,7 @@ function DynamicPPL.dot_assume(
     @assert dim(dist) == size(var, 1)
     getvn = i -> VarName(vn, vn.indexing * "[:,$i]")
     vns = getvn.(1:size(var, 2))
-    updategid!.(Ref(vi), vns, Ref(spl))
+    DynamicPPL.updategid!.(Ref(vi), vns, Ref(spl))
     r = vi[vns]
     var .= r
     return var, sum(logpdf_with_trans(dist, r, istrans(vi, vns[1])))
@@ -497,7 +460,7 @@ function DynamicPPL.dot_assume(
 )
     getvn = ind -> VarName(vn, vn.indexing * "[" * join(Tuple(ind), ",") * "]")
     vns = getvn.(CartesianIndices(var))
-    updategid!.(Ref(vi), vns, Ref(spl))
+    DynamicPPL.updategid!.(Ref(vi), vns, Ref(spl))
     r = reshape(vi[vec(vns)], size(var))
     var .= r
     return var, sum(logpdf_with_trans.(dists, r, istrans(vi, vns[1])))
