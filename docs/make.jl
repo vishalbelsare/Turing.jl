@@ -1,4 +1,4 @@
-using Documenter, DocumenterMarkdown, Turing, AdvancedHMC, Bijectors
+using Documenter, DocumenterMarkdown, Turing, TuringTutorials, AdvancedHMC, Bijectors
 using LibGit2: clone
 
 # Include the utility functions.
