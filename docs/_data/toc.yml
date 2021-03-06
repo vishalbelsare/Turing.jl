@@ -77,7 +77,7 @@
     url: "tutorials/09-variational-inference"
     
   - title: "Bayesian Differential Equation"
-    url: "tutorials/10-bayesian-diffeq"
+    url: "tutorials/10-bayesian-differential-equations"
 
 - title: "API"
   url: "docs/library"

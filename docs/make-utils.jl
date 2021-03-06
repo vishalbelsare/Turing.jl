@@ -231,22 +231,28 @@ function copy_tutorial(tutorial_path)
     # clone("https://github.com/TuringLang/TuringTutorials", tmp_path)
 
     # Move to markdown folder.
-    md_path = joinpath(homedir(), Pkg.dir(string(TuringTutorials)), "markdown")
+    md_path = joinpath(dirname(pathof(TuringTutorials)), "..", "markdown")
 
     # Copy the .md versions of all examples.
     try
         @debug(md_path)
-        for dir in readdir(md_path)
-            for file in readdir(joinpath(md_path, dir))
-                full_path = joinpath(md_path, dir, file)
-                target_path = joinpath(tutorial_path, file)
-                println("Copying $full_path to $target_path")
-                cp(full_path, target_path, force=true)
-                if endswith(target_path, ".md")
-                    # remove_yaml(target_path, "permalink")
-                    fix_header_1(target_path)
-                    print("fixing image path")
-                    fix_image_path(target_path)
+        for tutorialdir in readdir(md_path)
+            tutorial_path_src = joinpath(md_path, tutorialdir)
+            for (dir, subdirs, files) in walkdir(tutorial_path_src)
+                for file in files
+                    full_path = joinpath(dir, file)
+                    target_path = replace(full_path, tutorial_path_src => tutorial_path)
+                    mkpath(dirname(target_path))
+
+                    println("Copying $full_path to $target_path")
+                    cp(full_path, target_path, force=true)
+
+                    if endswith(target_path, ".md")
+                        # remove_yaml(target_path, "permalink")
+                        fix_header_1(target_path)
+                        print("fixing image path")
+                        fix_image_path(target_path)
+                    end
                 end
             end
         end
