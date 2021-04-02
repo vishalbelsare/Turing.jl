@@ -3,6 +3,7 @@ title: Interface Guide
 toc: true
 ---
 
+
 # The sampling interface
 
 Turing implements a sampling interface (hosted at
@@ -149,19 +150,18 @@ need, but we need to implement the `step!` function which actually performs infe
 
 As a refresher, Metropolis-Hastings implements a very basic algorithm:
 
-1. Pick some initial state, \$\$\theta\_0\$\$.
-2. For \$\$t\$\$ in \$\$[1,N]\$\$, do
-    
-    a. Generate a proposal parameterization \$\$θ'\_t \sim q(\theta'\_t \mid \theta\_{t-1})\$\$. 
-
-    b. Calculate the acceptance probability, \$\$\alpha = \text{min}\Big[1,\frac{\pi(θ'\_t)}{\pi(\theta\_{t-1})} \frac{q(θ\_{t-1} \mid θ'\_t)}{q(θ'\_t \mid θ\_{t-1})}) \Big]\$\$.
-
-    c. If \$\$U \le α\$\$ where \$\$U \sim [0,1]\$\$, then \$\$\theta\_t = \theta'\_t\$\$. Otherwise, \$\$\theta\_t = \theta\_{t-1}\$\$.
+1. Pick some initial state, $\theta\_0$.
+2. For $t$ in $[1,N]$, do
+    a. Generate a proposal parameterization $θ'\_t \sim q(\theta'\_t \mid \theta\_{t-1})$. 
+    b. Calculate the acceptance probability, $\alpha = \text{min}\Big[1,\frac{\pi(θ'\_t)}{\pi(\theta\_{t-1})} \frac{q(θ\_{t-1} \mid θ'\_t)}{q(θ'\_t \mid θ\_{t-1})}) \Big]$.
+    c. If $U \le α$ where $U \sim [0,1]$, then $\theta\_t = \theta'\_t$. Otherwise, $\theta\_t = \theta\_{t-1}$.
 
 Of course, it's much easier to do this in the log space, so the acceptance probability is
 more commonly written as 
 
-\$\$\log \alpha = \min\Big[0, \log \pi(θ'\_t) - \log \pi(θ\_{t-1}) + \log q(θ\_{t-1} \mid θ'\_t) - \log q(θ'\_t \mid θ\_{t-1}) \Big]\$\$
+$$
+\log \alpha = \min\Big[0, \log \pi(θ'\_t) - \log \pi(θ\_{t-1}) + \log q(θ\_{t-1} \mid θ'\_t) - \log q(θ'\_t \mid θ\_{t-1}) \Big]
+$$
 
 In interface terms, we should do the following:
 
