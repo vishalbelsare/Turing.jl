@@ -815,6 +815,7 @@
   <li><a href="/dev/docs/library/bijectors/#Bijectors.PartitionMask-Union{Tuple{T}, Tuple{Int64,Any}} where T"><code class="language-plaintext highlighter-rouge">Bijectors.PartitionMask</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.PartitionMask"><code class="language-plaintext highlighter-rouge">Bijectors.PartitionMask</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.Permute"><code class="language-plaintext highlighter-rouge">Bijectors.Permute</code></a></li>
+  <li><a href="/dev/docs/library/bijectors/#Bijectors.RationalQuadraticSpline"><code class="language-plaintext highlighter-rouge">Bijectors.RationalQuadraticSpline</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.Stacked"><code class="language-plaintext highlighter-rouge">Bijectors.Stacked</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors._link_chol_lkj-Tuple{Any}"><code class="language-plaintext highlighter-rouge">Bijectors._link_chol_lkj</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.bijector-Tuple{Distribution{Univariate,Discrete}}"><code class="language-plaintext highlighter-rouge">Bijectors.bijector</code></a></li>
@@ -831,8 +832,8 @@
   <li><a href="/dev/docs/library/bijectors/#Bijectors.isclosedform-Tuple{Bijector}"><code class="language-plaintext highlighter-rouge">Bijectors.isclosedform</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.logabsdetjac-Tuple{ADBijector,Real}"><code class="language-plaintext highlighter-rouge">Bijectors.logabsdetjac</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.logabsdetjac-Tuple{Inverse{var&quot;#s23&quot;,N} where N where var&quot;#s23&quot;&lt;:Bijector,Any}"><code class="language-plaintext highlighter-rouge">Bijectors.logabsdetjac</code></a></li>
-  <li><a href="/dev/docs/library/bijectors/#Bijectors.logabsdetjacinv-Tuple{Bijector,Any}"><code class="language-plaintext highlighter-rouge">Bijectors.logabsdetjacinv</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.logabsdetjacinv-Tuple{Bijectors.TransformedDistribution{var&quot;#s108&quot;,var&quot;#s107&quot;,Univariate} where var&quot;#s107&quot;&lt;:Bijector where var&quot;#s108&quot;&lt;:Distribution,Real}"><code class="language-plaintext highlighter-rouge">Bijectors.logabsdetjacinv</code></a></li>
+  <li><a href="/dev/docs/library/bijectors/#Bijectors.logabsdetjacinv-Tuple{Bijector,Any}"><code class="language-plaintext highlighter-rouge">Bijectors.logabsdetjacinv</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.logpdf_with_jac-Tuple{Bijectors.TransformedDistribution{var&quot;#s108&quot;,var&quot;#s107&quot;,Univariate} where var&quot;#s107&quot;&lt;:Bijector where var&quot;#s108&quot;&lt;:Distribution,Real}"><code class="language-plaintext highlighter-rouge">Bijectors.logpdf_with_jac</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.partition-Tuple{Bijectors.PartitionMask,Any}"><code class="language-plaintext highlighter-rouge">Bijectors.partition</code></a></li>
   <li><a href="/dev/docs/library/bijectors/#Bijectors.transformed-Tuple{Distribution,Bijector}"><code class="language-plaintext highlighter-rouge">Bijectors.transformed</code></a></li>
@@ -1561,6 +1562,94 @@ julia&gt; inv(b1)(b1([1., 2., 3.]))
  2.0
  3.0
 </code></pre>
+
+<p><a id="Bijectors.RationalQuadraticSpline" href="#Bijectors.RationalQuadraticSpline">#</a>
+<strong><code class="language-plaintext highlighter-rouge">Bijectors.RationalQuadraticSpline</code></strong> — <em>Type</em>.</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">RationalQuadraticSpline</span><span class="x">{</span><span class="n">T</span><span class="x">,</span> <span class="mi">0</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">Bijector</span><span class="x">{</span><span class="mi">0</span><span class="x">}</span>
+<span class="n">RationalQuadraticSpline</span><span class="x">{</span><span class="n">T</span><span class="x">,</span> <span class="mi">1</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">Bijector</span><span class="x">{</span><span class="mi">1</span><span class="x">}</span>
+</code></pre></div></div>
+
+<p>Implementation of the Rational Quadratic Spline flow [1].</p>
+
+<ul>
+  <li>Outside of the interval <code class="language-plaintext highlighter-rouge">[minimum(widths), maximum(widths)]</code>, this mapping is given  by the identity map.</li>
+  <li>Inside the interval it’s given by a monotonic spline (i.e. monotonic polynomials  connected at intermediate points) with endpoints fixed so as to continuously transform into the identity map.</li>
+</ul>
+
+<p>For the sake of efficiency, there are separate implementations for 0-dimensional and 1-dimensional inputs.</p>
+
+<p><strong>Notes</strong></p>
+
+<p>There are two constructors for <code class="language-plaintext highlighter-rouge">RationalQuadraticSpline</code>:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">RationalQuadraticSpline(widths, heights, derivatives)</code>: it is assumed that <code class="language-plaintext highlighter-rouge">widths</code>,</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">heights</code>, and <code class="language-plaintext highlighter-rouge">derivatives</code> satisfy the constraints that makes this a valid bijector, i.e.</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">widths</code>: monotonically increasing and <code class="language-plaintext highlighter-rouge">length(widths) == K</code>,</li>
+  <li><code class="language-plaintext highlighter-rouge">heights</code>: monotonically increasing and <code class="language-plaintext highlighter-rouge">length(heights) == K</code>,</li>
+  <li><code class="language-plaintext highlighter-rouge">derivatives</code>: non-negative and <code class="language-plaintext highlighter-rouge">derivatives[1] == derivatives[end] == 1</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">RationalQuadraticSpline(widths, heights, derivatives, B)</code>: other than than the lengths,  no assumptions are made on parameters. Therefore we will transform the parameters s.t.:</li>
+  <li><code class="language-plaintext highlighter-rouge">widths_new</code> ∈ [-B, B]ᴷ⁺¹, where <code class="language-plaintext highlighter-rouge">K == length(widths)</code>,</li>
+  <li><code class="language-plaintext highlighter-rouge">heights_new</code> ∈ [-B, B]ᴷ⁺¹, where <code class="language-plaintext highlighter-rouge">K == length(heights)</code>,</li>
+  <li><code class="language-plaintext highlighter-rouge">derivatives_new</code> ∈ (0, ∞)ᴷ⁺¹ with <code class="language-plaintext highlighter-rouge">derivatives_new[1] == derivates_new[end] == 1</code>,  where <code class="language-plaintext highlighter-rouge">(K - 1) == length(derivatives)</code>.</li>
+</ul>
+
+<p><strong>Examples</strong></p>
+
+<p><strong>Univariate</strong></p>
+
+<pre><code class="language-julia-repl">julia&gt; using Bijectors: RationalQuadraticSpline
+
+julia&gt; K = 3; B = 2;
+
+julia&gt; # Monotonic spline on '[-B, B]' with `K` intermediate knots/"connection points".
+       b = RationalQuadraticSpline(randn(K), randn(K), randn(K - 1), B);
+
+julia&gt; b(0.5) # inside of `[-B, B]` → transformed
+1.412300607463467
+
+julia&gt; b(5.) # outside of `[-B, B]` → not transformed
+5.0
+</code></pre>
+
+<p>Or we can use the constructor with the parameters correctly constrained:</p>
+
+<pre><code class="language-julia-repl">julia&gt; b = RationalQuadraticSpline(b.widths, b.heights, b.derivatives);
+
+julia&gt; b(0.5) # inside of `[-B, B]` → transformed
+1.412300607463467
+</code></pre>
+
+<p><strong>Multivariate</strong></p>
+
+<pre><code class="language-julia-repl">julia&gt; d = 2; K = 3; B = 2;
+
+julia&gt; b = RationalQuadraticSpline(randn(d, K), randn(d, K), randn(d, K - 1), B);
+
+julia&gt; b([-1., 1.])
+2-element Array{Float64,1}:
+ -1.2568224171342797
+  0.5537259740554675
+
+julia&gt; b([-5., 5.])
+2-element Array{Float64,1}:
+ -5.0
+  5.0
+
+julia&gt; b([-1., 5.])
+2-element Array{Float64,1}:
+ -1.2568224171342797
+  5.0
+</code></pre>
+
+<p><strong>References</strong></p>
+
+<p>[1] Durkan, C., Bekasov, A., Murray, I., &amp; Papamakarios, G., Neural Spline Flows, CoRR, arXiv:1906.04032 [stat.ML],  (2019).</p>
 
 <p><a id="Bijectors.Stacked" href="#Bijectors.Stacked">#</a>
 <strong><code class="language-plaintext highlighter-rouge">Bijectors.Stacked</code></strong> — <em>Type</em>.</p>
