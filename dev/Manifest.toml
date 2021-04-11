@@ -8,9 +8,9 @@ version = "1.0.1"
 
 [[AbstractMCMC]]
 deps = ["BangBang", "ConsoleProgressMonitor", "Distributed", "Logging", "LoggingExtras", "ProgressLogging", "Random", "StatsBase", "TerminalLoggers", "Transducers"]
-git-tree-sha1 = "7fcd8ce8931c56ba62827c87a291ea72ee07ce31"
+git-tree-sha1 = "ebb4cc471b4c32a8b44ef1929c2d68c1fab1a425"
 uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
-version = "2.5.0"
+version = "3.0.2"
 
 [[AbstractPPL]]
 deps = ["AbstractMCMC"]
@@ -87,9 +87,9 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[Bijectors]]
 deps = ["ArgCheck", "ChainRulesCore", "Compat", "Distributions", "Functors", "LinearAlgebra", "MappedArrays", "NNlib", "NonlinearSolve", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "StatsFuns"]
-git-tree-sha1 = "704dd7b3c8854f2f9efdf301fc1400ddbcc8eb75"
+git-tree-sha1 = "d65dfe6c83c40356b99ac2a8d741898fe1edae78"
 uuid = "76274a88-744f-5084-9051-94815aaf08c4"
-version = "0.9.0"
+version = "0.9.1"
 
 [[ChainRules]]
 deps = ["ChainRulesCore", "Compat", "LinearAlgebra", "Random", "Reexport", "Requires", "Statistics"]
@@ -274,9 +274,9 @@ version = "0.10.18"
 
 [[Functors]]
 deps = ["MacroTools"]
-git-tree-sha1 = "f40adc6422f548176bb4351ebd29e4abf773040a"
+git-tree-sha1 = "a7bb2af991c43dcf5c3455d276dd83976799634f"
 uuid = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
-version = "0.1.0"
+version = "0.2.1"
 
 [[Future]]
 deps = ["Random"]
@@ -733,7 +733,7 @@ version = "0.3.0"
 deps = ["AbstractMCMC", "AdvancedHMC", "AdvancedMH", "AdvancedPS", "AdvancedVI", "BangBang", "Bijectors", "Distributions", "DistributionsAD", "DocStringExtensions", "DynamicPPL", "EllipticalSliceSampling", "ForwardDiff", "Libtask", "LinearAlgebra", "MCMCChains", "NamedArrays", "Printf", "Random", "Reexport", "Requires", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Tracker", "ZygoteRules"]
 path = "/home/runner/work/Turing.jl/Turing.jl"
 uuid = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
-version = "0.15.14"
+version = "0.15.15"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]
