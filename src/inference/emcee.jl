@@ -15,7 +15,7 @@ function Emcee(n_walkers::Int, stretch_length=2.0)
     return Emcee{(), typeof(ensemble)}(ensemble)
 end
 
-struct EmceeState{V<:AbstractVarInfo,S}
+struct EmceeState{V<:AbstractVarInfo,S} <: AbstractState
     vi::V
     states::S
 end

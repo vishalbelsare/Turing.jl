@@ -66,7 +66,7 @@ metadata(t::SMCTransition) = (lp = t.lp, weight = t.weight)
 
 DynamicPPL.getlogp(t::SMCTransition) = t.lp
 
-struct SMCState{P,F<:AbstractFloat}
+struct SMCState{P,F<:AbstractFloat} <: AbstractState
     particles::P
     particleindex::Int
     # The logevidence after aggregating all samples together.

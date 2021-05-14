@@ -64,7 +64,7 @@ end
 Stores a `VarInfo` for use in sampling, and a `Tuple` of `Samplers` that
 the `Gibbs` sampler iterates through for each `step!`.
 """
-struct GibbsState{V<:VarInfo,S<:Tuple{Vararg{Sampler}},T}
+struct GibbsState{V<:VarInfo,S<:Tuple{Vararg{Sampler}},T} <: AbstractState
     vi::V
     samplers::S
     states::T

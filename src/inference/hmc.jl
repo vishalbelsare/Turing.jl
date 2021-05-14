@@ -8,7 +8,7 @@ struct HMCState{
     THam<:AHMC.Hamiltonian,
     PhType<:AHMC.PhasePoint,
     TAdapt<:AHMC.Adaptation.AbstractAdaptor,
-}
+} <: AbstractState
     vi::TV
     i::Int
     traj::TTraj
