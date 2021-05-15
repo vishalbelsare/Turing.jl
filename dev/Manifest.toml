@@ -42,10 +42,10 @@ uuid = "5b7e9947-ddc0-4b3f-9b55-0d8042f74170"
 version = "0.6.0"
 
 [[AdvancedPS]]
-deps = ["Distributions", "Libtask", "StatsFuns"]
-git-tree-sha1 = "60aad218fbeed614e5bfefcfb7c5bc97d3c9adeb"
+deps = ["AbstractMCMC", "Distributions", "Libtask", "Random", "StatsFuns"]
+git-tree-sha1 = "22bf49efbdc7adb01c1f2e56489ae3e5752ee969"
 uuid = "576499cb-2369-40b2-a588-c64705576edc"
-version = "0.1.0"
+version = "0.2.2"
 
 [[AdvancedVI]]
 deps = ["Bijectors", "Distributions", "DistributionsAD", "DocStringExtensions", "ForwardDiff", "LinearAlgebra", "ProgressMeter", "Random", "Requires", "StatsBase", "StatsFuns", "Tracker"]
@@ -804,7 +804,7 @@ version = "0.3.0"
 deps = ["AbstractMCMC", "AdvancedHMC", "AdvancedMH", "AdvancedPS", "AdvancedVI", "BangBang", "Bijectors", "DataStructures", "Distributions", "DistributionsAD", "DocStringExtensions", "DynamicPPL", "EllipticalSliceSampling", "ForwardDiff", "Libtask", "LinearAlgebra", "MCMCChains", "NamedArrays", "Printf", "Random", "Reexport", "Requires", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Tracker", "ZygoteRules"]
 path = "/home/runner/work/Turing.jl/Turing.jl"
 uuid = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
-version = "0.15.22"
+version = "0.15.23"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]
