@@ -37,9 +37,9 @@ version = "0.2.27"
 
 [[AdvancedMH]]
 deps = ["AbstractMCMC", "Distributions", "Random", "Requires"]
-git-tree-sha1 = "57bda8215ba78990ce600972b533e2f6516287e8"
+git-tree-sha1 = "03d5b90624215b3c5ba8c59a09b3995e6d09f592"
 uuid = "5b7e9947-ddc0-4b3f-9b55-0d8042f74170"
-version = "0.5.9"
+version = "0.6.0"
 
 [[AdvancedPS]]
 deps = ["Distributions", "Libtask", "StatsFuns"]
@@ -132,9 +132,9 @@ version = "0.3.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "0a817fbe51c976de090aa8c997b7b719b786118d"
+git-tree-sha1 = "0900bc19193b8e672d9cd477e6cd92d9e7c02f99"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.28.0"
+version = "3.29.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -441,9 +441,9 @@ version = "4.11.0"
 
 [[MLJModelInterface]]
 deps = ["Random", "ScientificTypes", "StatisticalTraits"]
-git-tree-sha1 = "49bdc18bf9150f2c96136d65a1cc8c65e9812a80"
+git-tree-sha1 = "cafa0e923ce1ae659a4b4cb8eb03c98b916f0d4d"
 uuid = "e80e1ace-859a-464e-9ed9-23947d8ae3ea"
-version = "1.0.0"
+version = "1.1.0"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -711,9 +711,9 @@ version = "1.2.0"
 
 [[StatisticalTraits]]
 deps = ["ScientificTypes"]
-git-tree-sha1 = "28dddf002dfe98ac9efa325d4c24d36f8ecbf3c1"
+git-tree-sha1 = "2d882a163c295d5d754e4102d92f4dda5a1f906b"
 uuid = "64bff920-2084-43da-a3e6-9bb72801c0c9"
-version = "1.0.0"
+version = "1.1.0"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
