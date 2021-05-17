@@ -92,9 +92,9 @@ version = "0.1.1"
 
 [[Bijectors]]
 deps = ["ArgCheck", "ChainRulesCore", "Compat", "Distributions", "Functors", "LinearAlgebra", "MappedArrays", "NNlib", "NonlinearSolve", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "StatsFuns"]
-git-tree-sha1 = "d65dfe6c83c40356b99ac2a8d741898fe1edae78"
+git-tree-sha1 = "0ac93096caa4bc6f201e9f770297d62c7114f48c"
 uuid = "76274a88-744f-5084-9051-94815aaf08c4"
-version = "0.9.1"
+version = "0.9.2"
 
 [[ChainRules]]
 deps = ["ChainRulesCore", "Compat", "LinearAlgebra", "Random", "Reexport", "Requires", "Statistics"]
@@ -243,9 +243,9 @@ uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[DynamicPPL]]
 deps = ["AbstractMCMC", "AbstractPPL", "Bijectors", "ChainRulesCore", "Distributions", "MacroTools", "NaturalSort", "Random", "ZygoteRules"]
-git-tree-sha1 = "54ed6be123b72009be5d5549f053ff93b0176420"
+git-tree-sha1 = "0a15c0dc5c923fc526d2ca6279a8b7a343511344"
 uuid = "366bfd00-2699-11ea-058f-f148b4cae6d8"
-version = "0.10.17"
+version = "0.10.18"
 
 [[EllipsisNotation]]
 deps = ["ArrayInterface"]
@@ -820,9 +820,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VectorizationBase]]
 deps = ["ArrayInterface", "Hwloc", "IfElse", "Libdl", "LinearAlgebra", "Static"]
-git-tree-sha1 = "24a5c54dab1907b0f2f086e5d15c65522c7e8ce1"
+git-tree-sha1 = "e67e76eb1e56444885f54609099150c13aaa4e5c"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.20.3"
+version = "0.20.4"
 
 [[Zlib_jll]]
 deps = ["Libdl"]
