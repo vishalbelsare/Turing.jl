@@ -18,77 +18,43 @@ struct MLE end
 struct MAP end
 
 """
-    OptimizationContext{C<:AbstractContext} <: AbstractContext
+    OptimizationContext <: LeafContext
 
 The `OptimizationContext` transforms variables to their constrained space, but
 does not use the density with respect to the transformation. This context is
 intended to allow an optimizer to sample in R^n freely.
 """
-struct OptimizationContext{C<:AbstractContext} <: AbstractContext
-    context::C
-end
+struct OptimizationContext <: LeafContext end
 
 # assume
-function DynamicPPL.tilde_assume(rng::Random.AbstractRNG, ctx::OptimizationContext, spl, dist, vn, inds, vi)
-    return DynamicPPL.tilde_assume(ctx, spl, dist, vn, inds, vi)
-end
-
-function DynamicPPL.tilde_assume(ctx::OptimizationContext{<:LikelihoodContext}, spl, dist, vn, inds, vi)
-    r = vi[vn]
-    return r, 0
-end
-
-function DynamicPPL.tilde_assume(ctx::OptimizationContext, spl, dist, vn, inds, vi)
+function DynamicPPL.tilde_assume(ctx::OptimizationContext, dist, vn, inds, vi)
     r = vi[vn]
     return r, Distributions.logpdf(dist, r)
 end
 
 
 # observe
-function DynamicPPL.tilde_observe(ctx::OptimizationContext, sampler, right, left, vi)
+function DynamicPPL.tilde_observe(ctx::OptimizationContext, right, left, vi)
     return DynamicPPL.observe(right, left, vi)
 end
 
-function DynamicPPL.tilde_observe(ctx::OptimizationContext{<:PriorContext}, sampler, right, left, vi)
-    return 0
-end
-
 # dot assume
-function DynamicPPL.dot_tilde_assume(rng::Random.AbstractRNG, ctx::OptimizationContext, sampler, right, left, vns, inds, vi)
-    return DynamicPPL.dot_tilde_assume(ctx, sampler, right, left, vns, inds, vi)
-end
-
-function DynamicPPL.dot_tilde_assume(ctx::OptimizationContext{<:LikelihoodContext}, sampler::SampleFromPrior, right, left, vns, _, vi)
-    # Values should be set and we're using `SampleFromPrior`, hence the `rng` argument shouldn't
-    # affect anything.
-    r = DynamicPPL.get_and_set_val!(Random.GLOBAL_RNG, vi, vns, right, sampler)
-    return r, 0
-end
-
-function DynamicPPL.dot_tilde_assume(ctx::OptimizationContext, sampler::SampleFromPrior, right, left, vns, _, vi)
-    # Values should be set and we're using `SampleFromPrior`, hence the `rng` argument shouldn't
-    # affect anything.
-    r = DynamicPPL.get_and_set_val!(Random.GLOBAL_RNG, vi, vns, right, sampler)
+function DynamicPPL.dot_tilde_assume(ctx::OptimizationContext, right, left, vns, _, vi)
+    # TODO: We should obviously have a method that doesn't require `rng` and `sampler` here
+    # when we're separating between evaluation and sampling.
+    r = DynamicPPL.get_and_set_val!(Random.GLOBAL_RNG, vi, vns, right, SampleFromPrior())
     return r, loglikelihood(right, r)
 end
 
 # dot observe
-function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext{<:PriorContext}, sampler, right, left, vn, _, vi)
-    return 0
-end
-
-function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext{<:PriorContext}, sampler, right, left, vi)
-    return 0
-end
-
-function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext, sampler::SampleFromPrior, right, left, vns, _, vi)
-    # Values should be set and we're using `SampleFromPrior`, hence the `rng` argument shouldn't
-    # affect anything.
-    r = DynamicPPL.get_and_set_val!(Random.GLOBAL_RNG, vi, vns, right, sampler)
+function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext, right, left, vns, _, vi)
+    # TODO: We should obviously have a method that doesn't require `rng` and `sampler` here
+    # when we're separating between evaluation and sampling.
+    r = DynamicPPL.get_and_set_val!(Random.GLOBAL_RNG, vi, vns, right, SampleFromPrior())
     return loglikelihood(right, r)
 end
 
-function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext, sampler, dists, value, vi)
+function DynamicPPL.dot_tilde_observe(ctx::OptimizationContext, dists, value, vi)
     return sum(Distributions.logpdf.(dists, value))
 end
 
@@ -295,7 +261,7 @@ function Optim.optimize(
 end
 
 function _mle_optimize(model::Model, args...; kwargs...)
-    ctx = OptimizationContext(DynamicPPL.LikelihoodContext())
+    ctx = DynamicPPL.LikelihoodContext(OptimizationContext())
     return _optimize(model, OptimLogDensity(model, ctx), args...; kwargs...)
 end
 
@@ -341,7 +307,7 @@ function Optim.optimize(
 end
 
 function _map_optimize(model::Model, args...; kwargs...)
-    ctx = OptimizationContext(DynamicPPL.DefaultContext())
+    ctx = OptimizationContext()
     return _optimize(model, OptimLogDensity(model, ctx), args...; kwargs...)
 end
 
