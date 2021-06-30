@@ -842,7 +842,7 @@
 
 <p>Note: As a sanity check, the expectation of <code class="language-plaintext highlighter-rouge">s</code> is 49/24 (2.04166666…) and the expectation of <code class="language-plaintext highlighter-rouge">m</code> is 7/6 (1.16666666…).</p>
 
-<p>We can perform inference by using the <code class="language-plaintext highlighter-rouge">sample</code> function, the first argument of which is our probabalistic program and the second of which is a sampler. More information on each sampler is located in the <a href="/dev/docs/library">API</a>.</p>
+<p>We can perform inference by using the <code class="language-plaintext highlighter-rouge">sample</code> function, the first argument of which is our probabilistic program and the second of which is a sampler. More information on each sampler is located in the <a href="/dev/docs/library">API</a>.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#  Run sampler, collect results.</span>
 <span class="n">c1</span> <span class="o">=</span> <span class="n">sample</span><span class="x">(</span><span class="n">gdemo</span><span class="x">(</span><span class="mf">1.5</span><span class="x">,</span> <span class="mi">2</span><span class="x">),</span> <span class="n">SMC</span><span class="x">(),</span> <span class="mi">1000</span><span class="x">)</span>
