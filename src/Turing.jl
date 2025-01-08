@@ -1,18 +1,33 @@
 module Turing
 
-using Requires, Reexport, ForwardDiff
+using Reexport, ForwardDiff
 using DistributionsAD, Bijectors, StatsFuns, SpecialFunctions
 using Statistics, LinearAlgebra
 using Libtask
 @reexport using Distributions, MCMCChains, Libtask, AbstractMCMC, Bijectors
-using Tracker: Tracker
+using Compat: pkgversion
 
-import AdvancedVI
+using AdvancedVI: AdvancedVI
+using DynamicPPL: DynamicPPL, LogDensityFunction
 import DynamicPPL: getspace, NoDist, NamedDist
-import Random
+using LogDensityProblems: LogDensityProblems
+using NamedArrays: NamedArrays
+using Accessors: Accessors
+using StatsAPI: StatsAPI
+using StatsBase: StatsBase
+
+using Accessors: Accessors
+
+using Printf: Printf
+using Random: Random
+
+using ADTypes: ADTypes
+
+const DEFAULT_ADTYPE = ADTypes.AutoForwardDiff()
 
 const PROGRESS = Ref(true)
 
+# TODO: remove `PROGRESS` and this function in favour of `AbstractMCMC.PROGRESS`
 """
     setprogress!(progress::Bool)
 
@@ -21,6 +36,8 @@ Enable progress logging in Turing if `progress` is `true`, and disable it otherw
 function setprogress!(progress::Bool)
     @info "[Turing]: progress logging is $(progress ? "enabled" : "disabled") globally"
     PROGRESS[] = progress
+    AbstractMCMC.setprogress!(progress; silent=true)
+    # TODO: `AdvancedVI.turnprogress` is removed in AdvancedVI v0.3
     AdvancedVI.turnprogress(progress)
     return progress
 end
@@ -28,119 +45,96 @@ end
 # Random probability measures.
 include("stdlib/distributions.jl")
 include("stdlib/RandomMeasures.jl")
-include("utilities/Utilities.jl")
-using .Utilities
-include("core/Core.jl")
-using .Core
-include("inference/Inference.jl")  # inference algorithms
+include("essential/Essential.jl")
+using .Essential
+include("mcmc/Inference.jl")  # inference algorithms
 using .Inference
 include("variational/VariationalInference.jl")
 using .Variational
 
-# TODO: re-design `sample` interface in MCMCChains, which unify CmdStan and Turing.
-#   Related: https://github.com/TuringLang/Turing.jl/issues/746
-#@init @require CmdStan="593b3428-ca2f-500c-ae53-031589ec8ddd" @eval begin
-#     @eval Utilities begin
-#         using ..Turing.CmdStan: CmdStan, Adapt, Hmc
-#         using ..Turing: HMC, HMCDA, NUTS
-#         include("utilities/stan-interface.jl")
-#     end
-# end
+include("optimisation/Optimisation.jl")
+using .Optimisation
 
-@init @require DynamicHMC="bbc10e6e-7c05-544b-b16e-64fede858acb" begin
-    @eval Inference begin
-        import ..DynamicHMC
-
-        if isdefined(DynamicHMC, :mcmc_with_warmup)
-            include("contrib/inference/dynamichmc.jl")
-        else
-            error("Please update DynamicHMC, v1.x is no longer supported")
-        end
-    end
-end
-
-include("modes/ModeEstimation.jl")
-using .ModeEstimation
-
-@init @require Optim="429524aa-4258-5aef-a3af-852621145aeb" @eval begin
-    include("modes/OptimInterface.jl")
-    export optimize
-end
+include("deprecated.jl") # to be removed in the next minor version release
 
 ###########
 # Exports #
 ###########
 # `using` statements for stuff to re-export
-using DynamicPPL: pointwise_loglikelihoods, generated_quantities, logprior, logjoint
+using DynamicPPL:
+    pointwise_loglikelihoods,
+    generated_quantities,
+    logprior,
+    logjoint,
+    condition,
+    decondition,
+    fix,
+    unfix,
+    conditioned,
+    to_submodel
 using StatsBase: predict
+using Bijectors: ordered
+using OrderedCollections: OrderedDict
 
 # Turing essentials - modelling macros and inference algorithms
-export  @model,                 # modelling
-        @varname,
-        @submodel,
-        DynamicPPL,
+export @model,                 # modelling
+    @varname,
+    @submodel,  # Deprecated
+    to_submodel,
+    DynamicPPL,
+    Prior,                  # Sampling from the prior
+    MH,                     # classic sampling
+    Emcee,
+    ESS,
+    Gibbs,
+    HMC,                    # Hamiltonian-like sampling
+    SGLD,
+    SGHMC,
+    HMCDA,
+    NUTS,
+    PolynomialStepsize,
+    IS,                     # particle-based sampling
+    SMC,
+    CSMC,
+    PG,
+    RepeatSampler,
+    vi,                     # variational inference
+    ADVI,
+    sample,                 # inference
+    @logprob_str,  # TODO: Remove, see https://github.com/TuringLang/DynamicPPL.jl/issues/356
+    @prob_str,     # TODO: Remove, see https://github.com/TuringLang/DynamicPPL.jl/issues/356
+    externalsampler,
+    AutoForwardDiff,        # ADTypes
+    AutoReverseDiff,
+    AutoZygote,
+    AutoMooncake,
+    setprogress!,           # debugging
+    Flat,
+    FlatPos,
+    BinomialLogit,
+    BernoulliLogit,         # Part of Distributions >= 0.25.77
+    OrderedLogistic,
+    LogPoisson,
+    filldist,
+    arraydist,
+    NamedDist,              # Exports from DynamicPPL
+    predict,
+    pointwise_loglikelihoods,
+    generated_quantities,
+    logprior,
+    logjoint,
+    LogDensityFunction,
+    condition,
+    decondition,
+    fix,
+    unfix,
+    conditioned,
+    OrderedDict,
+    ordered,                # Exports from Bijectors
+    maximum_a_posteriori,
+    maximum_likelihood,
+    # The MAP and MLE exports are only needed for the Optim.jl interface.
+    MAP,
+    MLE
 
-        Prior,                  # Sampling from the prior
-
-        MH,                     # classic sampling
-        RWMH,
-        Emcee,
-        ESS,
-        Gibbs,
-        GibbsConditional,
-
-        HMC,                    # Hamiltonian-like sampling
-        SGLD,
-        SGHMC,
-        HMCDA,
-        NUTS,
-        DynamicNUTS,
-        ANUTS,
-
-        PolynomialStepsize,
-
-        IS,                     # particle-based sampling
-        SMC,
-        CSMC,
-        PG,
-
-        vi,                     # variational inference
-        ADVI,
-
-        sample,                 # inference
-        setchunksize,
-        resume,
-        @logprob_str,
-        @prob_str,
-
-        auto_tune_chunk_size!,  # helper
-        setadbackend,
-        setadsafe,
-
-        setprogress!,           # debugging
-
-        Flat,
-        FlatPos,
-        BinomialLogit,
-        BernoulliLogit,
-        OrderedLogistic,
-        LogPoisson,
-        NamedDist,
-        filldist,
-        arraydist,
-
-        predict,
-        pointwise_loglikelihoods,
-        elementwise_loglikelihoods,
-        generated_quantities,
-        logprior,
-        logjoint,
-
-        constrained_space,            # optimisation interface
-        MAP,
-        MLE,
-        get_parameter_bounds,
-        optim_objective, 
-        optim_function,
-        optim_problem
 end
