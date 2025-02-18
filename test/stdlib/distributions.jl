@@ -1,20 +1,30 @@
+module DistributionsTests
+
+using ..NumericalTests: check_dist_numerical
+using Distributions
+using LinearAlgebra: I
+using Random: Random
+using StableRNGs: StableRNG
+using StatsFuns: logistic
+using Test: @testset, @test
+using Turing
+
 @testset "distributions.jl" begin
-    @turing_testset "distributions functions" begin
+    rng = StableRNG(12345)
+    @testset "distributions functions" begin
         ns = 10
-        logitp = randn()
+        logitp = randn(rng)
         d1 = BinomialLogit(ns, logitp)
         d2 = Binomial(ns, logistic(logitp))
         k = 3
         @test logpdf(d1, k) ≈ logpdf(d2, k)
     end
 
-    @turing_testset "distributions functions" begin
-        Random.seed!(1)
-
+    @testset "distributions functions" begin
         d = OrderedLogistic(-2, [-1, 1])
 
         n = 1_000_000
-        y = rand(d, n)
+        y = rand(rng, d, n)
         K = length(d.cutpoints) + 1
         p = [mean(==(k), y) for k in 1:K]          # empirical probs
         pmf = [exp(logpdf(d, k)) for k in 1:K]
@@ -22,25 +32,24 @@
         @test all(((x, y),) -> abs(x - y) < 0.001, zip(p, pmf))
     end
 
-    @turing_testset "distributions functions" begin
-        λ = .01:.01:5
-        LLp = @. logpdf(Poisson(λ),1)
-        LLlp = @. logpdf(LogPoisson(log(λ)),1)
-        @test LLp ≈ LLlp atol = .0001
-
+    @testset "distributions functions" begin
+        λ = 0.01:0.01:5
+        LLp = @. logpdf(Poisson(λ), 1)
+        LLlp = @. logpdf(LogPoisson(log(λ)), 1)
+        @test LLp ≈ LLlp atol = 0.0001
     end
 
-    @numerical_testset "single distribution correctness" begin
-        Random.seed!(12321)
+    @testset "single distribution correctness" begin
+        rng = StableRNG(1)
 
-        n_samples = 50_000
+        n_samples = 10_000
         mean_tol = 0.1
         var_atol = 1.0
         var_tol = 0.5
         multi_dim = 4
         # 1. UnivariateDistribution
         # NOTE: Noncentral distributions are commented out because of
-        #       AD imcompatibility of their logpdf functions
+        #       AD incompatibility of their logpdf functions
         dist_uni = [
             Arcsine(1, 3),
             Beta(2, 1),
@@ -96,35 +105,38 @@
 
         # 3. MatrixDistribution
         dist_matrix = [
-            Wishart(7, [1.0 0.5; 0.5 1.0]),
-            InverseWishart(7, [1.0 0.5; 0.5 1.0]),
+            Wishart(7, [1.0 0.5; 0.5 1.0]), InverseWishart(7, [1.0 0.5; 0.5 1.0])
         ]
 
-        @numerical_testset "Correctness test for single distributions" begin
-            for (dist_set, dist_list) ∈ [
-                ("UnivariateDistribution",   dist_uni),
+        @testset "Correctness test for single distributions" begin
+            for (dist_set, dist_list) in [
+                ("UnivariateDistribution", dist_uni),
                 ("MultivariateDistribution", dist_multi),
-                ("MatrixDistribution",       dist_matrix)
+                ("MatrixDistribution", dist_matrix),
             ]
                 @testset "$(string(dist_set))" begin
                     for dist in dist_list
-                    @testset "$(string(typeof(dist)))" begin
-                        @info "Distribution(params)" dist
+                        @testset "$(string(typeof(dist)))" begin
+                            @info "Distribution(params)" dist
 
-                        @model m() = x ~ dist
+                            @model m() = x ~ dist
 
-                        chn = sample(m(), HMC(0.2, 1), n_samples)
+                            chn = sample(rng, m(), HMC(0.05, 20), n_samples)
 
-                        # Numerical tests.
-                        check_dist_numerical(dist,
-                            chn,
-                            mean_tol=mean_tol,
-                            var_atol=var_atol,
-                            var_tol=var_tol)
+                            # Numerical tests.
+                            check_dist_numerical(
+                                dist,
+                                chn;
+                                mean_tol=mean_tol,
+                                var_atol=var_atol,
+                                var_tol=var_tol,
+                            )
                         end
                     end
                 end
             end
         end
     end
+end
+
 end

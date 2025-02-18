@@ -1,95 +1,244 @@
+module ADUtils
+
+using ForwardDiff: ForwardDiff
+using Pkg: Pkg
+using Random: Random
+using ReverseDiff: ReverseDiff
+using Mooncake: Mooncake
+using Test: Test
+using Turing: Turing
+using Turing: DynamicPPL
+using Zygote: Zygote
+
+export ADTypeCheckContext, adbackends
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Stuff for checking that the right AD backend is being used.
+
+"""Element types that are always valid for a VarInfo regardless of ADType."""
+const always_valid_eltypes = (AbstractFloat, AbstractIrrational, Integer, Rational)
+
+"""A dictionary mapping ADTypes to the element types they use."""
+const eltypes_by_adtype = Dict(
+    Turing.AutoForwardDiff => (ForwardDiff.Dual,),
+    Turing.AutoReverseDiff => (
+        ReverseDiff.TrackedArray,
+        ReverseDiff.TrackedMatrix,
+        ReverseDiff.TrackedReal,
+        ReverseDiff.TrackedStyle,
+        ReverseDiff.TrackedType,
+        ReverseDiff.TrackedVecOrMat,
+        ReverseDiff.TrackedVector,
+    ),
+    Turing.AutoMooncake => (Mooncake.CoDual,),
+    # Zygote.Dual is actually the same as ForwardDiff.Dual, so can't distinguish between the
+    # two by element type. However, we have other checks for Zygote, see check_adtype.
+    Turing.AutoZygote => (Zygote.Dual,),
+)
+
 """
-    test_reverse_mode_ad(forward, f, ȳ, x...; rtol=1e-6, atol=1e-6)
+    AbstractWrongADBackendError
 
-Check that the reverse-mode sensitivities produced by an AD library are correct for `f`
-at `x...`, given sensitivity `ȳ` w.r.t. `y = f(x...)` up to `rtol` and `atol`.
+An abstract error thrown when we seem to be using a different AD backend than expected.
 """
-function test_reverse_mode_ad( f, ȳ, x...; rtol=1e-6, atol=1e-6)
-    # Perform a regular forwards-pass.
-    y = f(x...)
+abstract type AbstractWrongADBackendError <: Exception end
 
-    # Use Tracker to compute reverse-mode sensitivities.
-    y_tracker, back_tracker = Tracker.forward(f, x...)
-    x̄s_tracker = back_tracker(ȳ)
+"""
+    WrongADBackendError
 
-    # Use Zygote to compute reverse-mode sensitivities.
-    y_zygote, back_zygote = Zygote.pullback(f, x...)
-    x̄s_zygote = back_zygote(ȳ)
+An error thrown when we seem to be using a different AD backend than expected.
+"""
+struct WrongADBackendError <: AbstractWrongADBackendError
+    actual_adtype::Type
+    expected_adtype::Type
+end
 
-    test_rd = length(x) == 1 && y isa Number
-    if test_rd
-        # Use ReverseDiff to compute reverse-mode sensitivities.
-        if x[1] isa Array
-            x̄s_rd = similar(x[1])
-            tp = ReverseDiff.GradientTape(x -> f(x), x[1])
-            ReverseDiff.gradient!(x̄s_rd, tp, x[1])
-            x̄s_rd .*= ȳ
-            y_rd = ReverseDiff.value(tp.output)
-            @assert y_rd isa Number
-        else
-            x̄s_rd = [x[1]]
-            tp = ReverseDiff.GradientTape(x -> f(x[1]), [x[1]])
-            ReverseDiff.gradient!(x̄s_rd, tp, [x[1]])
-            y_rd = ReverseDiff.value(tp.output)[1]
-            x̄s_rd = x̄s_rd[1] * ȳ
-            @assert y_rd isa Number
+function Base.showerror(io::IO, e::WrongADBackendError)
+    return print(
+        io, "Expected to use $(e.expected_adtype), but using $(e.actual_adtype) instead."
+    )
+end
+
+"""
+    IncompatibleADTypeError
+
+An error thrown when an element type is encountered that is unexpected for the given ADType.
+"""
+struct IncompatibleADTypeError <: AbstractWrongADBackendError
+    valtype::Type
+    adtype::Type
+end
+
+function Base.showerror(io::IO, e::IncompatibleADTypeError)
+    return print(
+        io,
+        "Incompatible ADType: Did not expect element of type $(e.valtype) with $(e.adtype)",
+    )
+end
+
+"""
+    ADTypeCheckContext{ADType,ChildContext}
+
+A context for checking that the expected ADType is being used.
+
+Evaluating a model with this context will check that the types of values in a `VarInfo` are
+compatible with the ADType of the context. If the check fails, an `IncompatibleADTypeError`
+is thrown.
+
+For instance, evaluating a model with
+`ADTypeCheckContext(AutoForwardDiff(), child_context)`
+would throw an error if within the model a type associated with e.g. ReverseDiff was
+encountered.
+
+As a current short-coming, this context can not distinguish between ForwardDiff and Zygote.
+"""
+struct ADTypeCheckContext{ADType,ChildContext<:DynamicPPL.AbstractContext} <:
+       DynamicPPL.AbstractContext
+    child::ChildContext
+
+    function ADTypeCheckContext(adbackend, child)
+        adtype = adbackend isa Type ? adbackend : typeof(adbackend)
+        if !any(adtype <: k for k in keys(eltypes_by_adtype))
+            throw(ArgumentError("Unsupported ADType: $adtype"))
         end
-    end
-
-    # Use finite differencing to compute reverse-mode sensitivities.
-    x̄s_fdm = FDM.j′vp(central_fdm(5, 1), f, ȳ, x...)
-
-    # Check that Tracker forwards-pass produces the correct answer.
-    @test isapprox(y, Tracker.data(y_tracker), atol=atol, rtol=rtol)
-
-    # Check that Zygpte forwards-pass produces the correct answer.
-    @test isapprox(y, y_zygote, atol=atol, rtol=rtol)
-
-    if test_rd
-        # Check that ReverseDiff forwards-pass produces the correct answer.
-        @test isapprox(y, y_rd, atol=atol, rtol=rtol)
-    end
-
-    # Check that Tracker reverse-mode sensitivities are correct.
-    @test all(zip(x̄s_tracker, x̄s_fdm)) do (x̄_tracker, x̄_fdm)
-        isapprox(Tracker.data(x̄_tracker), x̄_fdm; atol=atol, rtol=rtol)
-    end
-
-    # Check that Zygote reverse-mode sensitivities are correct.
-    @test all(zip(x̄s_zygote, x̄s_fdm)) do (x̄_zygote, x̄_fdm)
-        isapprox(x̄_zygote, x̄_fdm; atol=atol, rtol=rtol)
-    end
-
-    if test_rd
-        # Check that ReverseDiff reverse-mode sensitivities are correct.
-        @test isapprox(x̄s_rd, x̄s_zygote[1]; atol=atol, rtol=rtol)
+        return new{adtype,typeof(child)}(child)
     end
 end
 
-function test_model_ad(model, f, syms::Vector{Symbol})
-    # Set up VI.
-    vi = Turing.VarInfo(model)
+adtype(_::ADTypeCheckContext{ADType}) where {ADType} = ADType
 
-    # Collect symbols.
-    vnms = Vector(undef, length(syms))
-    vnvals = Vector{Float64}()
-    for i in 1:length(syms)
-        s = syms[i]
-        vnms[i] = getfield(vi.metadata, s).vns[1]
+DynamicPPL.NodeTrait(::ADTypeCheckContext) = DynamicPPL.IsParent()
+DynamicPPL.childcontext(c::ADTypeCheckContext) = c.child
+function DynamicPPL.setchildcontext(c::ADTypeCheckContext, child)
+    return ADTypeCheckContext(adtype(c), child)
+end
 
-        vals = getval(vi, vnms[i])
-        for i in eachindex(vals)
-            push!(vnvals, vals[i])
+"""
+    valid_eltypes(context::ADTypeCheckContext)
+
+Return the element types that are valid for the ADType of `context` as a tuple.
+"""
+function valid_eltypes(context::ADTypeCheckContext)
+    context_at = adtype(context)
+    for at in keys(eltypes_by_adtype)
+        if context_at <: at
+            return (eltypes_by_adtype[at]..., always_valid_eltypes...)
+        end
+    end
+    # This should never be reached due to the check in the inner constructor.
+    throw(ArgumentError("Unsupported ADType: $(adtype(context))"))
+end
+
+"""
+    check_adtype(context::ADTypeCheckContext, vi::DynamicPPL.VarInfo)
+
+Check that the element types in `vi` are compatible with the ADType of `context`.
+
+When Zygote is being used, we also more explicitly check that `adtype(context)` is
+`AutoZygote`. This is because Zygote uses the same element type as ForwardDiff, so we can't
+discriminate between the two based on element type alone. This function will still fail to
+catch cases where Zygote is supposed to be used, but ForwardDiff is used instead.
+
+Throw an `IncompatibleADTypeError` if an incompatible element type is encountered, or
+`WrongADBackendError` if Zygote is used unexpectedly.
+"""
+function check_adtype(context::ADTypeCheckContext, vi::DynamicPPL.AbstractVarInfo)
+    Zygote.hook(vi) do _
+        if !(adtype(context) <: Turing.AutoZygote)
+            throw(WrongADBackendError(Turing.AutoZygote, adtype(context)))
         end
     end
 
-    spl = SampleFromPrior()
-    _, ∇E = gradient_logp(ForwardDiffAD{1}(), vi[spl], vi, model)
-    grad_Turing = sort(∇E)
+    valids = valid_eltypes(context)
+    for val in vi[:]
+        valtype = typeof(val)
+        if !any(valtype .<: valids)
+            throw(IncompatibleADTypeError(valtype, adtype(context)))
+        end
+    end
+    return nothing
+end
 
-    # Call ForwardDiff's AD
-    grad_FWAD = sort(ForwardDiff.gradient(f, vec(vnvals)))
+# A bunch of tilde_assume/tilde_observe methods that just call the same method on the child
+# context, and then call check_adtype on the result before returning the results from the
+# child context.
 
-    # Compare result
-    @test grad_Turing ≈ grad_FWAD atol=1e-9
+function DynamicPPL.tilde_assume(context::ADTypeCheckContext, right, vn, vi)
+    value, logp, vi = DynamicPPL.tilde_assume(
+        DynamicPPL.childcontext(context), right, vn, vi
+    )
+    check_adtype(context, vi)
+    return value, logp, vi
+end
+
+function DynamicPPL.tilde_assume(
+    rng::Random.AbstractRNG, context::ADTypeCheckContext, sampler, right, vn, vi
+)
+    value, logp, vi = DynamicPPL.tilde_assume(
+        rng, DynamicPPL.childcontext(context), sampler, right, vn, vi
+    )
+    check_adtype(context, vi)
+    return value, logp, vi
+end
+
+function DynamicPPL.tilde_observe(context::ADTypeCheckContext, right, left, vi)
+    logp, vi = DynamicPPL.tilde_observe(DynamicPPL.childcontext(context), right, left, vi)
+    check_adtype(context, vi)
+    return logp, vi
+end
+
+function DynamicPPL.tilde_observe(context::ADTypeCheckContext, sampler, right, left, vi)
+    logp, vi = DynamicPPL.tilde_observe(
+        DynamicPPL.childcontext(context), sampler, right, left, vi
+    )
+    check_adtype(context, vi)
+    return logp, vi
+end
+
+function DynamicPPL.dot_tilde_assume(context::ADTypeCheckContext, right, left, vn, vi)
+    value, logp, vi = DynamicPPL.dot_tilde_assume(
+        DynamicPPL.childcontext(context), right, left, vn, vi
+    )
+    check_adtype(context, vi)
+    return value, logp, vi
+end
+
+function DynamicPPL.dot_tilde_assume(
+    rng::Random.AbstractRNG, context::ADTypeCheckContext, sampler, right, left, vn, vi
+)
+    value, logp, vi = DynamicPPL.dot_tilde_assume(
+        rng, DynamicPPL.childcontext(context), sampler, right, left, vn, vi
+    )
+    check_adtype(context, vi)
+    return value, logp, vi
+end
+
+function DynamicPPL.dot_tilde_observe(context::ADTypeCheckContext, right, left, vi)
+    logp, vi = DynamicPPL.dot_tilde_observe(
+        DynamicPPL.childcontext(context), right, left, vi
+    )
+    check_adtype(context, vi)
+    return logp, vi
+end
+
+function DynamicPPL.dot_tilde_observe(context::ADTypeCheckContext, sampler, right, left, vi)
+    logp, vi = DynamicPPL.dot_tilde_observe(
+        DynamicPPL.childcontext(context), sampler, right, left, vi
+    )
+    check_adtype(context, vi)
+    return logp, vi
+end
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# List of AD backends to test.
+
+"""
+All the ADTypes on which we want to run the tests.
+"""
+adbackends = [
+    Turing.AutoForwardDiff(; chunksize=0),
+    Turing.AutoReverseDiff(; compile=false),
+    Turing.AutoMooncake(; config=nothing),
+]
+
 end
