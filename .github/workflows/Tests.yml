@@ -1,0 +1,130 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+# Cancel existing tests on the same PR if a new commit is added to a pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  test:
+    # Use matrix.test.name here to avoid it taking up the entire window width
+    name: test ${{matrix.test.name}} (${{ matrix.runner.os }}, ${{ matrix.runner.version }}, ${{ matrix.runner.arch }}, ${{ matrix.runner.num_threads }})
+    runs-on: ${{ matrix.runner.os }}
+    continue-on-error: ${{ matrix.runner.version == 'pre' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          # Run some of the slower test files individually. The last one catches everything
+          # not included in the others.
+          - name: "essential/ad"
+            args: "essential/ad.jl"
+          - name: "mcmc/gibbs"
+            args: "mcmc/gibbs.jl"
+          - name: "mcmc/hmc"
+            args: "mcmc/hmc.jl"
+          - name: "mcmc/abstractmcmc"
+            args: "mcmc/abstractmcmc.jl"
+          - name: "mcmc/Inference"
+            args: "mcmc/Inference.jl"
+          - name: "mcmc/ess"
+            args: "mcmc/ess.jl"
+          - name: "everything else"
+            args: "--skip essential/ad.jl mcmc/gibbs.jl mcmc/hmc.jl mcmc/abstractmcmc.jl mcmc/Inference.jl mcmc/ess.jl"
+        runner:
+          # Default
+          - version: '1'
+            os: ubuntu-latest
+            arch: x64
+            num_threads: 1
+          # x86
+          - version: '1'
+            os: ubuntu-latest
+            arch: x86
+            num_threads: 1
+          # Multithreaded
+          - version: '1'
+            os: ubuntu-latest
+            arch: x64
+            num_threads: 2
+          # Windows
+          - version: '1'
+            os: windows-latest
+            arch: x64
+            num_threads: 1
+          # macOS
+          - version: '1'
+            os: macos-latest
+            arch: aarch64
+            num_threads: 1
+          # Minimum supported Julia version
+          - version: 'min'
+            os: ubuntu-latest
+            arch: x64
+            num_threads: 1
+          # Minimum supported Julia version, multithreaded
+          - version: 'min'
+            os: ubuntu-latest
+            arch: x64
+            num_threads: 2
+          # Pre-release Julia version
+          - version: 'pre'
+            os: ubuntu-latest
+            arch: x64
+            num_threads: 1
+
+    steps:
+      - name: Print matrix variables
+        run: |
+          echo "OS: ${{ matrix.runner.os }}"
+          echo "Architecture: ${{ matrix.runner.arch }}"
+          echo "Julia version: ${{ matrix.runner.version }}"
+          echo "Number of threads: ${{ matrix.runner.num_threads }}"
+          echo "Test arguments: ${{ matrix.test.args }}"
+      - name: (De)activate coverage analysis
+        run: echo "COVERAGE=${{ matrix.runner.version == '1' && matrix.runner.os == 'ubuntu-latest' && matrix.runner.num_threads == 2 }}" >> "$GITHUB_ENV"
+        shell: bash
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '${{ matrix.runner.version }}'
+          arch: ${{ matrix.runner.arch }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      # TODO: Use julia-actions/julia-runtest when test_args are supported
+      # Custom calls of Pkg.test tend to miss features such as e.g. adjustments for CompatHelper PRs
+      # Ref https://github.com/julia-actions/julia-runtest/pull/73
+      - name: Call Pkg.test
+        run: julia --color=yes --inline=yes --depwarn=yes --check-bounds=yes --threads=${{ matrix.runner.num_threads }} --project=@. -e 'import Pkg; Pkg.test(; coverage=parse(Bool, ENV["COVERAGE"]), test_args=ARGS)' -- ${{ matrix.test.args }}
+      - uses: julia-actions/julia-processcoverage@v1
+        if: ${{ env.COVERAGE }}
+      - uses: codecov/codecov-action@v4
+        if: ${{ env.COVERAGE }}
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: lcov.info
+      - uses: coverallsapp/github-action@v2
+        if: ${{ env.COVERAGE }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: lcov.info
+          flag-name: run-${{ join(matrix.*, '-') }}
+          parallel: true
+
+  finish:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Coveralls Finished
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true

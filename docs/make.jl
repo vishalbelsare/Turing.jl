@@ -1,53 +1,36 @@
-using Documenter, DocumenterMarkdown, Turing, AdvancedHMC, Bijectors
-using LibGit2: clone
+using Documenter
+using Turing
+# Need to import Distributions and Bijectors to generate docs for functions
+# from those packages.
+using Distributions
+using Bijectors
+using DynamicPPL
 
-# Include the utility functions.
-include("make-utils.jl")
+using DocumenterInterLinks
 
-# Paths.
-source_path = joinpath(@__DIR__, "src")
-build_path = joinpath(@__DIR__, "_docs")
-tutorial_path = joinpath(@__DIR__, "_tutorials")
+links = InterLinks(
+    "DynamicPPL" => "https://turinglang.org/DynamicPPL.jl/stable/objects.inv",
+    "AbstractPPL" => "https://turinglang.org/AbstractPPL.jl/dev/objects.inv",
+    "ADTypes" => "https://sciml.github.io/ADTypes.jl/stable/objects.inv",
+    "AdvancedVI" => "https://turinglang.org/AdvancedVI.jl/v0.2.8/objects.inv",
+    "DistributionsAD" => "https://turinglang.org/DistributionsAD.jl/stable/objects.inv",
+)
 
-with_clean_docs(source_path, build_path) do source, build
-    makedocs(
-        sitename = "Turing.jl",
-        source = source,
-        build = build,
-        format = Markdown(),
-        checkdocs = :all
-    )
-end
+# Doctest setup
+DocMeta.setdocmeta!(Turing, :DocTestSetup, :(using Turing); recursive=true)
 
-# You can skip this part if you are on a metered
-# connection by calling `julia make.jl no-tutorials`
-in("no-tutorials", ARGS) || copy_tutorial(tutorial_path)
-
-
-# set default baseurl for the master branch
-baseurl = "/dev"
-# set baseurl for version tag when current head is tagged
-vtag = get(ENV, "TRAVIS_TAG", "") # if on Travis
-if isempty(vtag) # so we are using GitHub Actions
-    vtag = replace(get(ENV, "GITHUB_REF", ""), r"/?refs/tags/?" => "")
-end
-
-version_match = match(r"^(v\d+\.\d+\.\d+)$", vtag)
-if !isnothing(version_match)
-    baseurl = "/" * version_match[1]
-end
-
-jekyll_build = joinpath(@__DIR__, "jekyll-build")
-with_baseurl(() -> run(`$jekyll_build`), baseurl)
-
-# deploy
-devurl = "dev"
-repo = "github.com:TuringLang/Turing.jl.git"
-deploydocs(
-    target = "_site",
-    repo = repo,
-    branch = "gh-pages",
-    devbranch = "master",
-    devurl = devurl,
-    versions = ["stable" => "v^", "v#.#", devurl => devurl]
+makedocs(;
+    sitename="Turing",
+    modules=[Turing, Distributions, Bijectors],
+    pages=[
+        "Home" => "index.md",
+        "API" => "api.md",
+        "Submodule APIs" =>
+            ["Inference" => "api/Inference.md", "Optimisation" => "api/Optimisation.md"],
+    ],
+    checkdocs=:exports,
+    # checkdocs_ignored_modules=[Turing, Distributions, DynamicPPL, AbstractPPL, Bijectors],
+    doctest=false,
+    warnonly=true,
+    plugins=[links],
 )

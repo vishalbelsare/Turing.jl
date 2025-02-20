@@ -79,9 +79,9 @@ struct BinomialLogit{T<:Real,S<:Real} <: DiscreteUnivariateDistribution
     logitp::T
     logconstant::S
 
-    function BinomialLogit{T}(n::Int, logitp::T) where T
+    function BinomialLogit{T}(n::Int, logitp::T) where {T}
         n >= 0 || error("parameter `n` has to be non-negative")
-        logconstant = - (log1p(n) + n * StatsFuns.log1pexp(logitp))
+        logconstant = -(log1p(n) + n * StatsFuns.log1pexp(logitp))
         return new{T,typeof(logconstant)}(n, logitp, logconstant)
     end
 end
@@ -109,12 +109,15 @@ function Base.rand(rng::Random.AbstractRNG, d::BinomialLogit)
 end
 Distributions.sampler(d::BinomialLogit) = sampler(Binomial(d.n, logistic(d.logitp)))
 
-"""
-    BernoulliLogit(logitp::Real)
+# Part of Distributions >= 0.25.77
+if !isdefined(Distributions, :BernoulliLogit)
+    """
+        BernoulliLogit(logitp::Real)
 
-Create a univariate logit-parameterised Bernoulli distribution.
-"""
-BernoulliLogit(logitp::Real) = BinomialLogit(1, logitp)
+    Create a univariate logit-parameterised Bernoulli distribution.
+    """
+    BernoulliLogit(logitp::Real) = BinomialLogit(1, logitp)
+end
 
 """
     OrderedLogistic(η, c::AbstractVector)
@@ -131,13 +134,13 @@ P(X = k) = \\begin{cases}
 ```
 where `K = length(c) + 1`.
 """
-struct OrderedLogistic{T1, T2<:AbstractVector} <: DiscreteUnivariateDistribution
+struct OrderedLogistic{T1,T2<:AbstractVector} <: DiscreteUnivariateDistribution
     η::T1
     cutpoints::T2
 
     function OrderedLogistic{T1,T2}(η::T1, cutpoints::T2) where {T1,T2}
         issorted(cutpoints) || error("cutpoints are not sorted")
-        return new{typeof(η), typeof(cutpoints)}(η, cutpoints)
+        return new{typeof(η),typeof(cutpoints)}(η, cutpoints)
     end
 end
 
@@ -190,10 +193,10 @@ function unsafe_logpdf_ordered_logistic(η, cutpoints, K, k::Int)
         logp = if k == 1
             -StatsFuns.log1pexp(η - cutpoints[k])
         elseif k < K
-            tmp = StatsFuns.log1pexp(cutpoints[k-1] - η)
+            tmp = StatsFuns.log1pexp(cutpoints[k - 1] - η)
             -tmp + StatsFuns.log1mexp(tmp - StatsFuns.log1pexp(cutpoints[k] - η))
         else
-            -StatsFuns.log1pexp(cutpoints[k-1] - η)
+            -StatsFuns.log1pexp(cutpoints[k - 1] - η)
         end
     end
     return logp
@@ -203,13 +206,13 @@ end
     LogPoisson(logλ)
 
 The *Poisson distribution* with logarithmic parameterization of the rate parameter
-descibes the number of independent events occurring within a unit time interval, given the
-average rate of occurrence ``exp(logλ)``.
+describes the number of independent events occurring within a unit time interval, given the
+average rate of occurrence ``\\exp(\\log\\lambda)``.
 
 The distribution has the probability mass function
 
 ```math
-P(X = k) = \\frac{e^{k \\cdot logλ}{k!} e^{-e^{logλ}}, \\quad \\text{ for } k = 0,1,2,\\ldots.
+P(X = k) = \\frac{e^{k \\cdot \\log\\lambda}}{k!} e^{-e^{\\log\\lambda}}, \\quad \\text{ for } k = 0,1,2,\\ldots.
 ```
 
 See also: [`Poisson`](@ref)
@@ -218,7 +221,7 @@ struct LogPoisson{T<:Real,S} <: DiscreteUnivariateDistribution
     logλ::T
     λ::S
 
-    function LogPoisson{T}(logλ::T) where T
+    function LogPoisson{T}(logλ::T) where {T}
         λ = exp(logλ)
         return new{T,typeof(λ)}(logλ, λ)
     end
@@ -244,10 +247,3 @@ Distributions.logpdf(d::LogPoisson, k::Real) = _logpdf(d, k)
 
 Base.rand(rng::Random.AbstractRNG, d::LogPoisson) = rand(rng, Poisson(d.λ))
 Distributions.sampler(d::LogPoisson) = sampler(Poisson(d.λ))
-
-Bijectors.logpdf_with_trans(d::NoDist{<:Univariate}, ::Real, ::Bool) = 0
-Bijectors.logpdf_with_trans(d::NoDist{<:Multivariate}, ::AbstractVector{<:Real}, ::Bool) = 0
-function Bijectors.logpdf_with_trans(d::NoDist{<:Multivariate}, x::AbstractMatrix{<:Real}, ::Bool)
-    return zeros(Int, size(x, 2))
-end
-Bijectors.logpdf_with_trans(d::NoDist{<:Matrixvariate}, ::AbstractMatrix{<:Real}, ::Bool) = 0
